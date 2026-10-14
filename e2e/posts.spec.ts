@@ -95,3 +95,21 @@ test('an oversized image is rejected before it is uploaded', async ({
     page.getByRole('article').filter({ hasText: 'Should not post' }),
   ).toHaveCount(0)
 })
+
+test('a post with a forged image is rejected and nothing is posted', async ({
+  page,
+}) => {
+  const user = newUser('fimg')
+  await signUp(page, user)
+  await page.getByLabel("What's on your mind?").fill('Forged image')
+  await page.getByLabel('Image').setInputFiles({
+    name: 'evil.png',
+    mimeType: 'image/png',
+    buffer: Buffer.from('%PDF-1.4 not really an image'),
+  })
+  await page.getByRole('button', { name: 'Post' }).click()
+  await expect(page.getByText('That file is not a valid image')).toBeVisible()
+  await expect(
+    page.getByRole('article').filter({ hasText: 'Forged image' }),
+  ).toHaveCount(0)
+})

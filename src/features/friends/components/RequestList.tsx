@@ -1,4 +1,4 @@
-import { Button } from '@/components/ui/Button'
+import { SubmitButton } from '@/components/ui/SubmitButton'
 import { Card } from '@/components/ui/Card'
 import {
   acceptFriendRequestForm,
@@ -20,12 +20,10 @@ export function IncomingRequests({ requests }: { requests: RequestItem[] }) {
             {requests.map((r) => (
               <PersonRow key={r.id} person={r.person}>
                 <form action={acceptFriendRequestForm.bind(null, r.id)}>
-                  <Button type="submit">Accept</Button>
+                  <SubmitButton>Accept</SubmitButton>
                 </form>
                 <form action={declineFriendRequestForm.bind(null, r.id)}>
-                  <Button type="submit" variant="secondary">
-                    Decline
-                  </Button>
+                  <SubmitButton variant="secondary">Decline</SubmitButton>
                 </form>
               </PersonRow>
             ))}
@@ -46,9 +44,7 @@ export function SentRequests({ requests }: { requests: RequestItem[] }) {
           {requests.map((r) => (
             <PersonRow key={r.id} person={r.person}>
               <form action={cancelFriendRequestForm.bind(null, r.id)}>
-                <Button type="submit" variant="secondary">
-                  Cancel request
-                </Button>
+                <SubmitButton variant="secondary">Cancel request</SubmitButton>
               </form>
             </PersonRow>
           ))}

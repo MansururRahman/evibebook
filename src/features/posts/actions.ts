@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { prisma } from '@/lib/db'
 import { requireUser } from '@/lib/session'
-import { deleteUpload, saveUpload, validateImage } from '@/lib/storage'
+import { deleteUpload, prepareUpload, writeUpload } from '@/lib/storage'
 import { fail, type ActionResult } from '@/lib/action-result'
 import { commentSchema, postBodySchema } from './schemas'
 import { canAccessPost } from './queries'
@@ -28,14 +28,20 @@ export async function createPost(
   const hasImage = image instanceof File && image.size > 0
   if (!body && !hasImage) return fail('Write something or add an image')
 
-  let imageUrl: string | undefined
-  if (hasImage) {
-    const problem = validateImage(image)
-    if (problem) return fail(problem)
-    imageUrl = await saveUpload(image, 'posts')
+  if (!hasImage) {
+    await prisma.post.create({ data: { authorId: user.id, body } })
+  } else {
+    const prepared = await prepareUpload(image, 'posts')
+    if (!prepared.ok) return fail(prepared.error)
+    // Row first, file second: if the insert fails there is no orphan file, and
+    // if the write fails the transaction rolls the row back.
+    await prisma.$transaction(async (tx) => {
+      await tx.post.create({
+        data: { authorId: user.id, body, imageUrl: prepared.upload.url },
+      })
+      await writeUpload(prepared.upload)
+    })
   }
-
-  await prisma.post.create({ data: { authorId: user.id, body, imageUrl } })
   revalidatePost(user.username)
   return { ok: true }
 }

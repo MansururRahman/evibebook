@@ -7,10 +7,13 @@ export type TestUser = {
   password: string
 }
 
+/** Every user the e2e suite creates uses this domain so global-teardown can remove them. */
+export const E2E_EMAIL_DOMAIN = 'e2e.test'
+
 export function newUser(prefix: string): TestUser {
   const tag = `${prefix}${Date.now().toString(36)}${Math.floor(Math.random() * 1000)}`
   return {
-    email: `${tag}@example.com`,
+    email: `${tag}@${E2E_EMAIL_DOMAIN}`,
     username: tag.slice(0, 20),
     name: `${prefix} Test`,
     password: 'password123',

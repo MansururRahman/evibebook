@@ -16,6 +16,10 @@ function revalidateFriends() {
   revalidatePath('/', 'layout')
 }
 
+function isUniqueViolation(e: unknown): boolean {
+  return (e as { code?: string } | null)?.code === 'P2002'
+}
+
 export async function sendFriendRequest(userId: string): Promise<ActionResult> {
   const user = await requireUser()
   if (userId === user.id) return fail('You cannot add yourself')
@@ -26,29 +30,39 @@ export async function sendFriendRequest(userId: string): Promise<ActionResult> {
   })
   if (!target) return fail('User not found')
 
-  const existing = await findFriendshipBetween(user.id, userId)
-  if (existing) {
-    // They already asked us: treat our request as an acceptance.
-    if (existing.status === 'PENDING' && existing.addresseeId === user.id) {
-      await prisma.friendship.update({
-        where: { id: existing.id },
-        data: { status: 'ACCEPTED', respondedAt: new Date() },
+  // Two attempts: if a row appears between our check and our insert (a double
+  // submit, or the other user asking us at the same instant) the database's
+  // unique pair index rejects the insert and we re-read and act on that row.
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const existing = await findFriendshipBetween(user.id, userId)
+    if (existing) {
+      // They already asked us: treat our request as an acceptance.
+      if (existing.status === 'PENDING' && existing.addresseeId === user.id) {
+        await prisma.friendship.update({
+          where: { id: existing.id },
+          data: { status: 'ACCEPTED', respondedAt: new Date() },
+        })
+        revalidateFriends()
+        return { ok: true }
+      }
+      return fail(
+        existing.status === 'ACCEPTED'
+          ? 'You are already friends'
+          : 'Request already sent',
+      )
+    }
+
+    try {
+      await prisma.friendship.create({
+        data: { requesterId: user.id, addresseeId: userId },
       })
       revalidateFriends()
       return { ok: true }
+    } catch (e) {
+      if (!isUniqueViolation(e)) throw e
     }
-    return fail(
-      existing.status === 'ACCEPTED'
-        ? 'You are already friends'
-        : 'Request already sent',
-    )
   }
-
-  await prisma.friendship.create({
-    data: { requesterId: user.id, addresseeId: userId },
-  })
-  revalidateFriends()
-  return { ok: true }
+  return fail('Request already sent')
 }
 
 async function transition(

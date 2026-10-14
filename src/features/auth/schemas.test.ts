@@ -71,3 +71,33 @@ describe('logInSchema', () => {
     ).toBe(false)
   })
 })
+
+describe('length caps', () => {
+  const longEmail = `${'a'.repeat(250)}@example.com` // 262 chars
+
+  it('rejects emails longer than 254 characters on sign-up and login', () => {
+    expect(signUpSchema.safeParse({ ...valid, email: longEmail }).success).toBe(
+      false,
+    )
+    expect(
+      logInSchema.safeParse({ email: longEmail, password: 'x' }).success,
+    ).toBe(false)
+  })
+
+  it('rejects passwords over 72 UTF-8 bytes even when under 72 characters', () => {
+    const multibyte = 'é'.repeat(37) // 37 chars, 74 bytes: bcrypt would silently truncate it
+    expect(
+      signUpSchema.safeParse({ ...valid, password: multibyte }).success,
+    ).toBe(false)
+    expect(
+      logInSchema.safeParse({ email: valid.email, password: multibyte })
+        .success,
+    ).toBe(false)
+  })
+
+  it('accepts a password of exactly 72 bytes', () => {
+    expect(
+      signUpSchema.safeParse({ ...valid, password: 'a'.repeat(72) }).success,
+    ).toBe(true)
+  })
+})

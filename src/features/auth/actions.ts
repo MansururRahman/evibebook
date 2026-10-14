@@ -1,11 +1,11 @@
 'use server'
 
-import { AuthError } from 'next-auth'
 import { z } from 'zod'
 import { signIn, signOut } from '@/auth'
 import { prisma } from '@/lib/db'
 import { hashPassword } from '@/lib/password'
 import { fail, type ActionResult } from '@/lib/action-result'
+import { LOGIN_FAILURE_MESSAGE, classifyLoginError } from './login-error'
 import { logInSchema, signUpSchema } from './schemas'
 
 function safeNext(value: FormDataEntryValue | null): string {
@@ -80,8 +80,10 @@ export async function logIn(
       redirectTo: safeNext(formData.get('next')),
     })
   } catch (e) {
-    if (e instanceof AuthError) return fail('Invalid email or password')
-    throw e // NEXT_REDIRECT and anything unexpected must propagate
+    const failure = classifyLoginError(e)
+    if (!failure) throw e // NEXT_REDIRECT and anything unexpected must propagate
+    if (failure === 'unavailable') console.error('Login failed unexpectedly', e)
+    return fail(LOGIN_FAILURE_MESSAGE[failure])
   }
   return { ok: true }
 }

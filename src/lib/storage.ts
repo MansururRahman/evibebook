@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { promises as fs } from 'node:fs'
 import path from 'node:path'
-import { EXT_BY_MIME, extensionForMime } from '@/lib/image-rules'
+import { EXT_BY_MIME, sniffImageType, validateImage } from '@/lib/image-rules'
 
 export {
   MAX_UPLOAD_BYTES,
@@ -47,21 +47,50 @@ export function resolveUploadPath(
   return resolved.startsWith(rootWithSep) ? resolved : null
 }
 
-/** Write an already-validated image to disk and return its public URL. */
-export async function saveUpload(
+export type PreparedUpload = {
+  /** Public URL the row should store. */
+  url: string
+  /** Absolute path writeUpload will create. */
+  filePath: string
+  bytes: Buffer
+}
+
+export type PrepareUploadResult =
+  { ok: true; upload: PreparedUpload } | { ok: false; error: string }
+
+/**
+ * Validate an uploaded image (declared type, size, and the actual leading
+ * bytes) and decide where it will live, without touching the disk yet. Callers
+ * create the database row first and then call writeUpload inside the same
+ * transaction, so a failed insert never leaves an orphan file.
+ */
+export async function prepareUpload(
   file: File,
   kind: UploadKind,
-): Promise<string> {
-  const ext = extensionForMime(file.type)
-  if (!ext) throw new Error(`Unsupported image type: ${file.type}`)
-  const filename = `${randomUUID()}.${ext}`
-  const dir = path.join(uploadRoot(), kind)
-  await fs.mkdir(dir, { recursive: true })
-  await fs.writeFile(
-    path.join(dir, filename),
-    Buffer.from(await file.arrayBuffer()),
-  )
-  return uploadUrl(kind, filename)
+): Promise<PrepareUploadResult> {
+  const problem = validateImage(file)
+  if (problem) return { ok: false, error: problem }
+
+  const bytes = Buffer.from(await file.arrayBuffer())
+  const sniffed = sniffImageType(bytes)
+  if (!sniffed || sniffed !== file.type)
+    return { ok: false, error: 'That file is not a valid image' }
+
+  const filename = `${randomUUID()}.${EXT_BY_MIME[sniffed]}`
+  return {
+    ok: true,
+    upload: {
+      url: uploadUrl(kind, filename),
+      filePath: path.join(uploadRoot(), kind, filename),
+      bytes,
+    },
+  }
+}
+
+/** Write a prepared upload to disk. */
+export async function writeUpload(upload: PreparedUpload): Promise<void> {
+  await fs.mkdir(path.dirname(upload.filePath), { recursive: true })
+  await fs.writeFile(upload.filePath, upload.bytes)
 }
 
 /** Best-effort delete of a file previously returned by saveUpload. */

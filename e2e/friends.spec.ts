@@ -1,4 +1,5 @@
 import { expect, test, type Browser, type Page } from '@playwright/test'
+import { createFriendship } from './db'
 import { newUser, signUp, type TestUser } from './helpers'
 
 async function userIn(
@@ -132,4 +133,74 @@ test('acting on a request that was withdrawn refreshes the page to reality', asy
   await a.page.getByRole('button', { name: 'Accept' }).click()
   await expect(a.page.getByRole('button', { name: 'Add friend' })).toBeVisible()
   await expect(a.page.getByRole('button', { name: 'Accept' })).toHaveCount(0)
+})
+
+test('the people page offers Add friend inline and reflects the new state', async ({
+  browser,
+}) => {
+  const a = await userIn(browser, 'ppa')
+  const b = await userIn(browser, 'ppb')
+
+  await b.page.goto(`/people?q=${a.user.username}`)
+  const row = b.page.getByRole('listitem').filter({ hasText: a.user.name })
+  await row.getByRole('button', { name: 'Add friend' }).click()
+  await expect(
+    row.getByRole('button', { name: 'Cancel request' }),
+  ).toBeVisible()
+
+  // A sees B in search with Accept, and accepting there makes them friends
+  await a.page.goto(`/people?q=${b.user.username}`)
+  const aRow = a.page.getByRole('listitem').filter({ hasText: b.user.name })
+  await aRow.getByRole('button', { name: 'Accept' }).click()
+  await expect(aRow.getByRole('button', { name: 'Unfriend' })).toBeVisible()
+})
+
+test('double-clicking Add friend sends exactly one request', async ({
+  browser,
+}) => {
+  const a = await userIn(browser, 'dba')
+  const b = await userIn(browser, 'dbb')
+
+  await b.page.goto(`/u/${a.user.username}`)
+  await b.page.getByRole('button', { name: 'Add friend' }).dblclick()
+  await expect(
+    b.page.getByRole('button', { name: 'Cancel request' }),
+  ).toBeVisible()
+
+  await a.page.goto('/friends')
+  await expect(
+    a.page
+      .getByRole('region', { name: 'Friend requests' })
+      .getByRole('listitem'),
+  ).toHaveCount(1)
+})
+
+test('the database refuses a second request between the same two people, in either direction', async ({
+  browser,
+}) => {
+  const a = await userIn(browser, 'rca')
+  const b = await userIn(browser, 'rcb')
+
+  await createFriendship(a.user.email, b.user.email)
+  await expect(createFriendship(b.user.email, a.user.email)).rejects.toThrow(
+    /unique/i,
+  )
+})
+
+test('sending a request when the other side already asked makes you friends', async ({
+  browser,
+}) => {
+  const a = await userIn(browser, 'mua')
+  const b = await userIn(browser, 'mub')
+
+  // Both open each other's profile and see Add friend
+  await a.page.goto(`/u/${b.user.username}`)
+  await b.page.goto(`/u/${a.user.username}`)
+  await a.page.getByRole('button', { name: 'Add friend' }).click()
+  await expect(
+    a.page.getByRole('button', { name: 'Cancel request' }),
+  ).toBeVisible()
+  // B's page is stale; their click must land as an acceptance, not an error
+  await b.page.getByRole('button', { name: 'Add friend' }).click()
+  await expect(b.page.getByRole('button', { name: 'Unfriend' })).toBeVisible()
 })

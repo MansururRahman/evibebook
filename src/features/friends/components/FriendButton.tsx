@@ -1,4 +1,4 @@
-import { Button } from '@/components/ui/Button'
+import { SubmitButton } from '@/components/ui/SubmitButton'
 import type { FriendshipRow, Relationship } from '@/lib/friendship'
 import {
   acceptFriendRequestForm,
@@ -23,36 +23,30 @@ export function FriendButton({
     case 'none':
       return (
         <form action={sendFriendRequestForm.bind(null, otherId)}>
-          <Button type="submit">Add friend</Button>
+          <SubmitButton>Add friend</SubmitButton>
         </form>
       )
     case 'outgoing_pending':
       return (
         <form action={cancelFriendRequestForm.bind(null, row!.id)}>
-          <Button type="submit" variant="secondary">
-            Cancel request
-          </Button>
+          <SubmitButton variant="secondary">Cancel request</SubmitButton>
         </form>
       )
     case 'incoming_pending':
       return (
         <div className="flex gap-2">
           <form action={acceptFriendRequestForm.bind(null, row!.id)}>
-            <Button type="submit">Accept</Button>
+            <SubmitButton>Accept</SubmitButton>
           </form>
           <form action={declineFriendRequestForm.bind(null, row!.id)}>
-            <Button type="submit" variant="secondary">
-              Decline
-            </Button>
+            <SubmitButton variant="secondary">Decline</SubmitButton>
           </form>
         </div>
       )
     case 'friends':
       return (
         <form action={unfriendForm.bind(null, otherId)}>
-          <Button type="submit" variant="secondary">
-            Unfriend
-          </Button>
+          <SubmitButton variant="secondary">Unfriend</SubmitButton>
         </form>
       )
   }

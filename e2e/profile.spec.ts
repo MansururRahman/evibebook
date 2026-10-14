@@ -67,3 +67,38 @@ test('upload route refuses path traversal and missing files', async ({
   )
   expect((await page.request.get('/uploads/..%2F.env')).status()).toBe(404)
 })
+
+test('uploads are served with nosniff so a browser cannot reinterpret them', async ({
+  page,
+}) => {
+  const user = newUser('sniff')
+  await signUp(page, user)
+  await page.goto('/settings/profile')
+  await page
+    .getByLabel('Avatar')
+    .setInputFiles({ name: 'a.png', mimeType: 'image/png', buffer: PNG_1x1 })
+  await page.getByRole('button', { name: 'Save' }).click()
+  await expect(page).toHaveURL(new RegExp(`/u/${user.username}$`))
+  const src = await page
+    .getByRole('img', { name: user.name })
+    .first()
+    .getAttribute('src')
+  const res = await page.request.get(src!)
+  expect(res.headers()['x-content-type-options']).toBe('nosniff')
+})
+
+test('a file that claims to be an image but is not is rejected', async ({
+  page,
+}) => {
+  const user = newUser('forge')
+  await signUp(page, user)
+  await page.goto('/settings/profile')
+  await page.getByLabel('Avatar').setInputFiles({
+    name: 'evil.png',
+    mimeType: 'image/png',
+    buffer: Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"></svg>'),
+  })
+  await page.getByRole('button', { name: 'Save' }).click()
+  await expect(page.getByText('That file is not a valid image')).toBeVisible()
+  await expect(page).toHaveURL(/\/settings\/profile/)
+})

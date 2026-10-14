@@ -1,6 +1,7 @@
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
-import type { Person } from '../queries'
+import type { PersonWithRelationship } from '../queries'
+import { FriendButton } from './FriendButton'
 import { PersonRow } from './PersonRow'
 
 export function PeopleSearch({
@@ -8,7 +9,7 @@ export function PeopleSearch({
   results,
 }: {
   query: string
-  results: Person[]
+  results: PersonWithRelationship[]
 }) {
   return (
     <Card>
@@ -31,7 +32,13 @@ export function PeopleSearch({
         ) : (
           <ul className="mt-2 divide-y divide-zinc-100">
             {results.map((p) => (
-              <PersonRow key={p.id} person={p} />
+              <PersonRow key={p.id} person={p}>
+                <FriendButton
+                  otherId={p.id}
+                  relationship={p.relationship}
+                  row={p.row}
+                />
+              </PersonRow>
             ))}
           </ul>
         )

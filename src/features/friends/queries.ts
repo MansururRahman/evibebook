@@ -108,15 +108,21 @@ export function countIncoming(userId: string): Promise<number> {
   })
 }
 
+export type PersonWithRelationship = Person & {
+  relationship: Relationship
+  row: FriendshipRow | null
+}
+
+/** People matching `query` (never the viewer), each with the viewer's relationship to them. */
 export async function searchUsers(
   query: string,
-  excludeId: string,
-): Promise<Person[]> {
+  viewerId: string,
+): Promise<PersonWithRelationship[]> {
   const q = query.trim()
   if (!q) return []
-  return prisma.user.findMany({
+  const people = await prisma.user.findMany({
     where: {
-      id: { not: excludeId },
+      id: { not: viewerId },
       OR: [
         { username: { contains: q.toLowerCase() } },
         { name: { contains: q, mode: 'insensitive' } },
@@ -125,5 +131,27 @@ export async function searchUsers(
     select: personSelect,
     orderBy: { username: 'asc' },
     take: 20,
+  })
+  if (people.length === 0) return []
+
+  const ids = people.map((p) => p.id)
+  const rows = await prisma.friendship.findMany({
+    where: {
+      OR: [
+        { requesterId: viewerId, addresseeId: { in: ids } },
+        { addresseeId: viewerId, requesterId: { in: ids } },
+      ],
+    },
+    select: { id: true, requesterId: true, addresseeId: true, status: true },
+  })
+  const rowByOther = new Map(
+    rows.map((r) => [
+      r.requesterId === viewerId ? r.addresseeId : r.requesterId,
+      r,
+    ]),
+  )
+  return people.map((p) => {
+    const row = rowByOther.get(p.id) ?? null
+    return { ...p, row, relationship: relationshipFor(viewerId, p.id, row) }
   })
 }

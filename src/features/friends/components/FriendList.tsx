@@ -1,4 +1,4 @@
-import { Button } from '@/components/ui/Button'
+import { SubmitButton } from '@/components/ui/SubmitButton'
 import { Card } from '@/components/ui/Card'
 import { unfriendForm } from '../actions'
 import type { Person } from '../queries'
@@ -20,9 +20,7 @@ export function FriendList({ friends }: { friends: Person[] }) {
             {friends.map((p) => (
               <PersonRow key={p.id} person={p}>
                 <form action={unfriendForm.bind(null, p.id)}>
-                  <Button type="submit" variant="ghost">
-                    Unfriend
-                  </Button>
+                  <SubmitButton variant="ghost">Unfriend</SubmitButton>
                 </form>
               </PersonRow>
             ))}

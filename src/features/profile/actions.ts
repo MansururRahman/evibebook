@@ -5,7 +5,7 @@ import { redirect } from 'next/navigation'
 import { z } from 'zod'
 import { prisma } from '@/lib/db'
 import { requireUser } from '@/lib/session'
-import { deleteUpload, saveUpload, validateImage } from '@/lib/storage'
+import { deleteUpload, prepareUpload, writeUpload } from '@/lib/storage'
 import { fail, type ActionResult } from '@/lib/action-result'
 import { updateProfileSchema } from './schemas'
 
@@ -27,19 +27,24 @@ export async function updateProfile(
   }
 
   const avatar = formData.get('avatar')
-  let avatarUrl: string | undefined
   if (avatar instanceof File && avatar.size > 0) {
-    const problem = validateImage(avatar)
-    if (problem)
-      return fail('Please fix the highlighted fields', { avatar: [problem] })
-    avatarUrl = await saveUpload(avatar, 'avatars')
+    const prepared = await prepareUpload(avatar, 'avatars')
+    if (!prepared.ok)
+      return fail('Please fix the highlighted fields', {
+        avatar: [prepared.error],
+      })
+    // Row first, file second (see createPost).
+    await prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: user.id },
+        data: { ...parsed.data, avatarUrl: prepared.upload.url },
+      })
+      await writeUpload(prepared.upload)
+    })
+    if (user.avatarUrl) await deleteUpload(user.avatarUrl)
+  } else {
+    await prisma.user.update({ where: { id: user.id }, data: parsed.data })
   }
-
-  await prisma.user.update({
-    where: { id: user.id },
-    data: { ...parsed.data, ...(avatarUrl ? { avatarUrl } : {}) },
-  })
-  if (avatarUrl && user.avatarUrl) await deleteUpload(user.avatarUrl)
 
   revalidatePath(`/u/${user.username}`)
   redirect(`/u/${user.username}`)

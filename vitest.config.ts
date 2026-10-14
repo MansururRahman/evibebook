@@ -6,6 +6,13 @@ export default defineConfig({
     environment: 'node',
     include: ['src/**/*.test.ts'],
     passWithNoTests: true,
+    server: {
+      deps: {
+        // next-auth's Node entry imports `next/server`, which Node's resolver cannot
+        // find through the pnpm layout; let Vite resolve it instead.
+        inline: ['next-auth'],
+      },
+    },
   },
   resolve: {
     alias: {
