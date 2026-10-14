@@ -5,12 +5,19 @@ import { Button } from '@/components/ui/Button'
 import { Avatar } from '@/features/profile/components/Avatar'
 import { deletePostForm } from '../actions'
 import type { FeedPost } from '../queries'
+import { CommentForm } from './CommentForm'
+import { CommentList } from './CommentList'
+import { LikeButton } from './LikeButton'
 
 export function formatDate(date: Date): string {
   return new Intl.DateTimeFormat('en', {
     dateStyle: 'medium',
     timeStyle: 'short',
   }).format(date)
+}
+
+function plural(n: number, word: string) {
+  return `${n} ${n === 1 ? word : `${word}s`}`
 }
 
 export function PostCard({
@@ -57,10 +64,18 @@ export function PostCard({
           <p className="whitespace-pre-wrap text-sm">{post.body}</p>
         ) : null}
         {post.imageUrl ? <PostImage src={post.imageUrl} /> : null}
-        <footer className="flex gap-4 text-xs text-zinc-500">
-          <span>{post.likeCount} likes</span>
-          <span>{post.commentCount} comments</span>
+        <footer className="flex items-center gap-3 border-t border-zinc-100 pt-2 text-xs text-zinc-500">
+          <LikeButton postId={post.id} liked={post.likedByMe} />
+          <span>{plural(post.likeCount, 'like')}</span>
+          <span>·</span>
+          <span>{plural(post.commentCount, 'comment')}</span>
         </footer>
+        <CommentList
+          comments={post.comments}
+          viewerId={viewerId}
+          postAuthorId={post.authorId}
+        />
+        <CommentForm postId={post.id} />
       </article>
     </Card>
   )
