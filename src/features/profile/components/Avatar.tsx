@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element -- uploads are served by our own route handler, not next/image */
 const sizes = {
   sm: 'h-8 w-8 text-xs',
   md: 'h-10 w-10 text-sm',
@@ -22,7 +23,6 @@ export function Avatar({
 
   if (avatarUrl) {
     // Plain <img>: uploads are served by our own route handler, not next/image.
-    // eslint-disable-next-line @next/next/no-img-element
     return (
       <img
         src={avatarUrl}
