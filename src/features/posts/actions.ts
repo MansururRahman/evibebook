@@ -6,6 +6,7 @@ import { prisma } from '@/lib/db'
 import { requireUser } from '@/lib/session'
 import { deleteUpload, prepareUpload, writeUpload } from '@/lib/storage'
 import { fail, type ActionResult } from '@/lib/action-result'
+import { isReactionType, type ReactionType } from '@/lib/reactions'
 import { commentSchema, postBodySchema } from './schemas'
 import { canAccessPost } from './queries'
 
@@ -78,22 +79,46 @@ export async function deletePostForm(
   if (result.ok && redirectTo) redirect(redirectTo)
 }
 
-export async function toggleLike(postId: string): Promise<ActionResult> {
+/** Set the viewer's reaction on a post, replacing any existing one. */
+export async function setReaction(
+  postId: string,
+  type: ReactionType,
+): Promise<ActionResult> {
   const user = await requireUser()
+  if (!isReactionType(type)) return fail('Unknown reaction')
   const post = await canAccessPost(user.id, postId)
   if (!post) return fail('Post not found')
 
-  const where = { userId_postId: { userId: user.id, postId } }
-  const existing = await prisma.like.findUnique({ where })
-  if (existing) await prisma.like.delete({ where })
-  else await prisma.like.create({ data: { userId: user.id, postId } })
-
+  await prisma.reaction.upsert({
+    where: { userId_postId: { userId: user.id, postId } },
+    create: { userId: user.id, postId, type },
+    update: { type },
+  })
   revalidatePost(post.author.username)
   return { ok: true }
 }
 
-export async function toggleLikeForm(postId: string): Promise<void> {
-  refreshOnFailure(await toggleLike(postId))
+export async function removeReaction(postId: string): Promise<ActionResult> {
+  const user = await requireUser()
+  const post = await canAccessPost(user.id, postId)
+  if (!post) return fail('Post not found')
+
+  // deleteMany rather than delete: removing a reaction that is already gone
+  // (double submit, stale page) is a no-op, not an error.
+  await prisma.reaction.deleteMany({ where: { userId: user.id, postId } })
+  revalidatePost(post.author.username)
+  return { ok: true }
+}
+
+export async function setReactionForm(
+  postId: string,
+  type: ReactionType,
+): Promise<void> {
+  refreshOnFailure(await setReaction(postId, type))
+}
+
+export async function removeReactionForm(postId: string): Promise<void> {
+  refreshOnFailure(await removeReaction(postId))
 }
 
 export async function addComment(

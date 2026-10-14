@@ -16,7 +16,7 @@ function minutesAgo(m: number) {
 async function main() {
   await prisma.friendship.deleteMany()
   await prisma.comment.deleteMany()
-  await prisma.like.deleteMany()
+  await prisma.reaction.deleteMany()
   await prisma.post.deleteMany()
   await prisma.user.deleteMany()
 
@@ -74,7 +74,13 @@ async function main() {
   await post(carol.id, 'Cardamom buns: attempt #4. Getting close.', 90)
   await post(dave.id, 'Hello world. Just joined.', 30)
 
-  await prisma.like.create({ data: { userId: bob.id, postId: a1.id } })
+  await prisma.reaction.createMany({
+    data: [
+      { userId: bob.id, postId: a1.id, type: 'LIKE' },
+      { userId: carol.id, postId: a1.id, type: 'LOVE' },
+      { userId: dave.id, postId: a1.id, type: 'WOW' },
+    ],
+  })
   await prisma.comment.create({
     data: { postId: a1.id, authorId: bob.id, body: 'Welcome!' },
   })

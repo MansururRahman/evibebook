@@ -2,6 +2,7 @@ import 'server-only'
 import { prisma } from '@/lib/db'
 import { canViewPostsOf, paginate, visibleAuthorIds } from '@/lib/feed'
 import { getFriendIds } from '@/features/friends/queries'
+import type { ReactionCount, ReactionType } from '@/lib/reactions'
 
 export const FEED_PAGE_SIZE = 20
 
@@ -15,8 +16,8 @@ const authorSelect = {
 function postInclude(viewerId: string) {
   return {
     author: { select: authorSelect },
-    _count: { select: { likes: true, comments: true } },
-    likes: { where: { userId: viewerId }, select: { userId: true } },
+    _count: { select: { reactions: true, comments: true } },
+    reactions: { where: { userId: viewerId }, select: { type: true } },
     comments: {
       orderBy: { createdAt: 'asc' as const },
       include: { author: { select: authorSelect } },
@@ -46,9 +47,11 @@ export type FeedPost = {
   createdAt: Date
   authorId: string
   author: PostAuthor
-  likeCount: number
+  reactionCount: number
+  /** Per-type counts for the summary row; only types with at least one reaction. */
+  reactionCounts: ReactionCount[]
+  myReaction: ReactionType | null
   commentCount: number
-  likedByMe: boolean
   comments: FeedComment[]
 }
 
@@ -69,26 +72,47 @@ function fetchRows(
   })
 }
 
-function toFeedPost(row: Row): FeedPost {
-  return {
+/** Per-type reaction counts for a set of posts, in one grouped query. */
+async function reactionCountsFor(
+  postIds: string[],
+): Promise<Map<string, ReactionCount[]>> {
+  const byPost = new Map<string, ReactionCount[]>()
+  if (postIds.length === 0) return byPost
+  const groups = await prisma.reaction.groupBy({
+    by: ['postId', 'type'],
+    where: { postId: { in: postIds } },
+    _count: { _all: true },
+  })
+  for (const g of groups) {
+    const list = byPost.get(g.postId) ?? []
+    list.push({ type: g.type, count: g._count._all })
+    byPost.set(g.postId, list)
+  }
+  return byPost
+}
+
+async function toFeedPosts(rows: Row[]): Promise<FeedPost[]> {
+  const counts = await reactionCountsFor(rows.map((r) => r.id))
+  return rows.map((row) => ({
     id: row.id,
     body: row.body,
     imageUrl: row.imageUrl,
     createdAt: row.createdAt,
     authorId: row.authorId,
     author: row.author,
-    likeCount: row._count.likes,
+    reactionCount: row._count.reactions,
+    reactionCounts: counts.get(row.id) ?? [],
+    myReaction: row.reactions[0]?.type ?? null,
     commentCount: row._count.comments,
-    likedByMe: row.likes.length > 0,
     comments: row.comments,
-  }
+  }))
 }
 
 export async function getFeed(viewerId: string, cursor?: string) {
   const authorIds = visibleAuthorIds(viewerId, await getFriendIds(viewerId))
   const rows = await fetchRows(viewerId, authorIds, cursor, FEED_PAGE_SIZE + 1)
   const { items, nextCursor } = paginate(rows, FEED_PAGE_SIZE)
-  return { posts: items.map(toFeedPost), nextCursor }
+  return { posts: await toFeedPosts(items), nextCursor }
 }
 
 /** Posts on a profile page, or null when the viewer is not allowed to see them. */
@@ -101,7 +125,7 @@ export async function getUserPosts(
   if (!canViewPostsOf(viewerId, authorId, friendIds)) return null
   const rows = await fetchRows(viewerId, [authorId], cursor, FEED_PAGE_SIZE + 1)
   const { items, nextCursor } = paginate(rows, FEED_PAGE_SIZE)
-  return { posts: items.map(toFeedPost), nextCursor }
+  return { posts: await toFeedPosts(items), nextCursor }
 }
 
 /** A single post, or null when it does not exist or the viewer may not see it. */
@@ -116,10 +140,11 @@ export async function getPost(
   if (!row) return null
   const friendIds = await getFriendIds(viewerId)
   if (!canViewPostsOf(viewerId, row.authorId, friendIds)) return null
-  return toFeedPost(row)
+  const [post] = await toFeedPosts([row])
+  return post
 }
 
-/** Whether `viewerId` may interact with (like, comment on) the given post. */
+/** Whether `viewerId` may interact with (react to, comment on) the given post. */
 export async function canAccessPost(viewerId: string, postId: string) {
   const post = await prisma.post.findUnique({
     where: { id: postId },

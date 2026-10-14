@@ -19,7 +19,7 @@ model User {
   updatedAt    DateTime @updatedAt
 
   posts            Post[]
-  likes            Like[]
+  reactions        Reaction[]
   comments         Comment[]
   sentRequests     Friendship[] @relation("FriendshipRequester")
   receivedRequests Friendship[] @relation("FriendshipAddressee")
@@ -33,18 +33,30 @@ model Post {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  author   User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  likes    Like[]
-  comments Comment[]
+  author    User       @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  reactions Reaction[]
+  comments  Comment[]
 
   @@index([authorId, createdAt(sort: Desc)])
   @@index([createdAt(sort: Desc), id(sort: Desc)])
 }
 
-model Like {
+enum ReactionType {
+  LIKE
+  LOVE
+  CARE
+  HAHA
+  WOW
+  SAD
+  ANGRY
+}
+
+/// One reaction per user per post; changing it replaces the row's type.
+model Reaction {
   userId    String
   postId    String
-  createdAt DateTime @default(now())
+  type      ReactionType @default(LIKE)
+  createdAt DateTime     @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   post Post @relation(fields: [postId], references: [id], onDelete: Cascade)

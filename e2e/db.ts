@@ -38,7 +38,7 @@ export function createFriendship(
 
 /**
  * Delete every user whose email is on `domain`, plus the files their avatars
- * and posts uploaded. Rows that hang off a user (posts, likes, comments,
+ * and posts uploaded. Rows that hang off a user (posts, reactions, comments,
  * friendships) go with it through ON DELETE CASCADE.
  */
 export async function deleteUsersByEmailDomain(

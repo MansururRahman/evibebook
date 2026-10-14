@@ -7,7 +7,8 @@ import { deletePostForm } from '../actions'
 import type { FeedPost } from '../queries'
 import { CommentForm } from './CommentForm'
 import { CommentList } from './CommentList'
-import { LikeButton } from './LikeButton'
+import { ReactionButton } from './ReactionButton'
+import { ReactionSummary } from './ReactionSummary'
 
 export function formatDate(date: Date): string {
   return new Intl.DateTimeFormat('en', {
@@ -70,8 +71,8 @@ export function PostCard({
         ) : null}
         {post.imageUrl ? <PostImage src={post.imageUrl} /> : null}
         <footer className="flex items-center gap-3 border-t border-zinc-100 pt-2 text-xs text-zinc-500">
-          <LikeButton postId={post.id} liked={post.likedByMe} />
-          <span>{plural(post.likeCount, 'like')}</span>
+          <ReactionButton postId={post.id} current={post.myReaction} />
+          <ReactionSummary counts={post.reactionCounts} />
           <span>·</span>
           <span>{plural(post.commentCount, 'comment')}</span>
         </footer>
