@@ -1,17 +1,15 @@
 import { randomUUID } from 'node:crypto'
 import { promises as fs } from 'node:fs'
 import path from 'node:path'
+import { EXT_BY_MIME, extensionForMime } from '@/lib/image-rules'
+
+export {
+  MAX_UPLOAD_BYTES,
+  extensionForMime,
+  validateImage,
+} from '@/lib/image-rules'
 
 export type UploadKind = 'avatars' | 'posts'
-
-export const MAX_UPLOAD_BYTES = 5 * 1024 * 1024
-
-const EXT_BY_MIME: Record<string, string> = {
-  'image/jpeg': 'jpg',
-  'image/png': 'png',
-  'image/webp': 'webp',
-  'image/gif': 'gif',
-}
 
 const MIME_BY_EXT: Record<string, string> = Object.fromEntries(
   Object.entries(EXT_BY_MIME).map(([mime, ext]) => [ext, mime]),
@@ -21,22 +19,8 @@ export function uploadRoot(): string {
   return path.resolve(process.env.UPLOAD_DIR || './uploads')
 }
 
-export function extensionForMime(mime: string): string | null {
-  return EXT_BY_MIME[mime] ?? null
-}
-
 export function mimeForExtension(ext: string): string | null {
   return MIME_BY_EXT[ext.toLowerCase()] ?? null
-}
-
-/** Returns an error message, or null when the file is an acceptable image. */
-export function validateImage(file: {
-  type: string
-  size: number
-}): string | null {
-  if (!extensionForMime(file.type)) return 'Use a JPEG, PNG, WebP or GIF image'
-  if (file.size > MAX_UPLOAD_BYTES) return 'Images must be 5 MB or smaller'
-  return null
 }
 
 /** Public URL for a stored upload. Always forward slashes, never path.join. */

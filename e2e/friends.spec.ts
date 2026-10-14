@@ -109,3 +109,27 @@ test('cancelling your own request, and finding people by search', async ({
     a.page.getByRole('listitem').filter({ hasText: b.user.name }),
   ).toHaveCount(0)
 })
+
+test('acting on a request that was withdrawn refreshes the page to reality', async ({
+  browser,
+}) => {
+  const a = await userIn(browser, 'wda')
+  const b = await userIn(browser, 'wdb')
+
+  await b.page.goto(`/u/${a.user.username}`)
+  await b.page.getByRole('button', { name: 'Add friend' }).click()
+  await expect(
+    b.page.getByRole('button', { name: 'Cancel request' }),
+  ).toBeVisible()
+
+  // A opens B's profile and sees Accept; meanwhile B withdraws the request
+  await a.page.goto(`/u/${b.user.username}`)
+  await expect(a.page.getByRole('button', { name: 'Accept' })).toBeVisible()
+  await b.page.getByRole('button', { name: 'Cancel request' }).click()
+  await expect(b.page.getByRole('button', { name: 'Add friend' })).toBeVisible()
+
+  // A's stale Accept click must not leave the stale button in place
+  await a.page.getByRole('button', { name: 'Accept' }).click()
+  await expect(a.page.getByRole('button', { name: 'Add friend' })).toBeVisible()
+  await expect(a.page.getByRole('button', { name: 'Accept' })).toHaveCount(0)
+})

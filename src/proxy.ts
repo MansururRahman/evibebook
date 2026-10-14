@@ -14,11 +14,9 @@ export default auth((req) => {
   if (PUBLIC_PREFIXES.some((p) => pathname.startsWith(p)))
     return NextResponse.next()
 
-  if (AUTH_PAGES.includes(pathname)) {
-    return loggedIn
-      ? NextResponse.redirect(new URL('/feed', req.nextUrl))
-      : NextResponse.next()
-  }
+  // Auth pages are always reachable. The (auth) layout redirects logged-in users
+  // using a database-backed check, so a stale JWT (user deleted) cannot loop.
+  if (AUTH_PAGES.includes(pathname)) return NextResponse.next()
 
   if (!loggedIn) {
     const login = new URL('/login', req.nextUrl)

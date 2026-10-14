@@ -106,19 +106,23 @@ export async function unfriend(userId: string): Promise<ActionResult> {
   return transition('unfriend', row.id)
 }
 
-// Form-action wrappers: <form action> expects a void-returning function.
+// Form-action wrappers: <form action> expects a void-returning function. When the
+// action fails (the request changed under the user) re-render so the UI catches up.
+function refreshOnFailure(result: ActionResult) {
+  if (!result.ok) revalidateFriends()
+}
 export async function sendFriendRequestForm(userId: string): Promise<void> {
-  await sendFriendRequest(userId)
+  refreshOnFailure(await sendFriendRequest(userId))
 }
 export async function acceptFriendRequestForm(id: string): Promise<void> {
-  await acceptFriendRequest(id)
+  refreshOnFailure(await acceptFriendRequest(id))
 }
 export async function declineFriendRequestForm(id: string): Promise<void> {
-  await declineFriendRequest(id)
+  refreshOnFailure(await declineFriendRequest(id))
 }
 export async function cancelFriendRequestForm(id: string): Promise<void> {
-  await cancelFriendRequest(id)
+  refreshOnFailure(await cancelFriendRequest(id))
 }
 export async function unfriendForm(userId: string): Promise<void> {
-  await unfriend(userId)
+  refreshOnFailure(await unfriend(userId))
 }

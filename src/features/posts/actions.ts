@@ -56,9 +56,14 @@ export async function deletePost(postId: string): Promise<ActionResult> {
   return { ok: true }
 }
 
-/** Form-action wrapper: forms expect a void-returning action. */
+/** Form-action wrappers: forms expect a void-returning action. When the action
+ * fails (e.g. the row changed under the user) re-render so the UI reflects reality. */
+function refreshOnFailure(result: ActionResult) {
+  if (!result.ok) revalidatePath('/', 'layout')
+}
+
 export async function deletePostForm(postId: string): Promise<void> {
-  await deletePost(postId)
+  refreshOnFailure(await deletePost(postId))
 }
 
 export async function toggleLike(postId: string): Promise<ActionResult> {
@@ -76,7 +81,7 @@ export async function toggleLike(postId: string): Promise<ActionResult> {
 }
 
 export async function toggleLikeForm(postId: string): Promise<void> {
-  await toggleLike(postId)
+  refreshOnFailure(await toggleLike(postId))
 }
 
 export async function addComment(
@@ -123,5 +128,5 @@ export async function deleteComment(commentId: string): Promise<ActionResult> {
 }
 
 export async function deleteCommentForm(commentId: string): Promise<void> {
-  await deleteComment(commentId)
+  refreshOnFailure(await deleteComment(commentId))
 }

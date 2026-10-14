@@ -78,3 +78,20 @@ test('the author can delete a post', async ({ page }) => {
     page.getByRole('article').filter({ hasText: 'Temporary thought' }),
   ).toHaveCount(0)
 })
+
+test('an oversized image is rejected before it is uploaded', async ({
+  page,
+}) => {
+  const user = newUser('big')
+  await signUp(page, user)
+  const sixMb = Buffer.alloc(6 * 1024 * 1024, 1)
+  await page
+    .getByLabel('Image')
+    .setInputFiles({ name: 'huge.png', mimeType: 'image/png', buffer: sixMb })
+  await expect(page.getByText('Images must be 5 MB or smaller')).toBeVisible()
+  await page.getByLabel("What's on your mind?").fill('Should not post')
+  await expect(page.getByRole('button', { name: 'Post' })).toBeDisabled()
+  await expect(
+    page.getByRole('article').filter({ hasText: 'Should not post' }),
+  ).toHaveCount(0)
+})

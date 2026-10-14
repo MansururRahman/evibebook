@@ -7,21 +7,33 @@ import { Card } from '@/components/ui/Card'
 import { FormError } from '@/components/ui/FormError'
 import { Input, Textarea } from '@/components/ui/Input'
 import type { ActionResult } from '@/lib/action-result'
+import { ACCEPTED_IMAGE_TYPES } from '@/lib/image-rules'
+import { useImageField } from '@/components/ui/useImageField'
 
 const initial: ActionResult = { ok: true }
 
 export function PostComposer() {
   const [state, action, pending] = useActionState(createPost, initial)
   const formRef = useRef<HTMLFormElement>(null)
+  const image = useImageField()
 
   // Clear the form after a successful post (the action result flips to ok with a new object).
   useEffect(() => {
-    if (state.ok) formRef.current?.reset()
+    if (state.ok) {
+      formRef.current?.reset()
+      image.reset()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reset only when the action result changes
   }, [state])
 
   return (
     <Card>
-      <form ref={formRef} action={action} className="flex flex-col gap-3">
+      <form
+        ref={formRef}
+        action={action}
+        onSubmit={image.onSubmit}
+        className="flex flex-col gap-3"
+      >
         <FormError message={!state.ok ? state.error : undefined} />
         <Textarea
           label="What's on your mind?"
@@ -34,9 +46,11 @@ export function PostComposer() {
             label="Image"
             name="image"
             type="file"
-            accept="image/jpeg,image/png,image/webp,image/gif"
+            accept={ACCEPTED_IMAGE_TYPES}
+            onChange={image.onChange}
+            errors={image.error ? [image.error] : undefined}
           />
-          <Button type="submit" disabled={pending}>
+          <Button type="submit" disabled={pending || Boolean(image.error)}>
             {pending ? 'Posting…' : 'Post'}
           </Button>
         </div>

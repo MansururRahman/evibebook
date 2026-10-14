@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { logIn, logOut, newUser, signUp } from './helpers'
+import { deleteUserByEmail } from './db'
 
 test('visiting the app logged out redirects to login', async ({ page }) => {
   await page.goto('/feed')
@@ -51,4 +52,18 @@ test('duplicate email and username show field errors', async ({ page }) => {
   await page.getByRole('button', { name: 'Create account' }).click()
   await expect(page.getByText('already')).toBeVisible()
   await expect(page).toHaveURL(/\/signup/)
+})
+
+test('a stale session for a deleted user lands on the login page, not a redirect loop', async ({
+  page,
+}) => {
+  const user = newUser('stale')
+  await signUp(page, user)
+  // Simulate `pnpm db:seed` / `db:reset` wiping users while a browser is still logged in
+  await deleteUserByEmail(user.email)
+
+  const res = await page.goto('/feed')
+  expect(res?.status()).toBe(200)
+  await expect(page).toHaveURL(/\/login/)
+  await expect(page.getByRole('button', { name: 'Log in' })).toBeVisible()
 })
