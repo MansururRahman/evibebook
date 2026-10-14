@@ -113,3 +113,38 @@ test('a post with a forged image is rejected and nothing is posted', async ({
     page.getByRole('article').filter({ hasText: 'Forged image' }),
   ).toHaveCount(0)
 })
+
+test('the timestamp links to a post page that only the audience can open', async ({
+  browser,
+}) => {
+  const authorCtx = await browser.newContext()
+  const author = await authorCtx.newPage()
+  const user = newUser('plink')
+  await signUp(author, user)
+  await author.getByLabel("What's on your mind?").fill('Permalink me')
+  await author.getByRole('button', { name: 'Post' }).click()
+  const article = author
+    .getByRole('article')
+    .filter({ hasText: 'Permalink me' })
+  await expect(article).toHaveCount(1)
+
+  await article.getByRole('link', { name: /\d{4}/ }).click()
+  await expect(author).toHaveURL(/\/p\/[a-z0-9]+$/)
+  const url = author.url()
+  await expect(author.getByRole('article')).toHaveCount(1)
+  await expect(author.getByRole('article')).toContainText('Permalink me')
+
+  // A stranger gets a 404, as does a made-up id
+  const strangerCtx = await browser.newContext()
+  const stranger = await strangerCtx.newPage()
+  await signUp(stranger, newUser('pstr'))
+  expect((await stranger.goto(url))?.status()).toBe(404)
+  expect((await stranger.goto('/p/does_not_exist'))?.status()).toBe(404)
+
+  // Deleting from the post page returns to the feed
+  await author.getByRole('button', { name: 'Delete' }).click()
+  await expect(author).toHaveURL(/\/feed$/)
+  await expect(
+    author.getByRole('article').filter({ hasText: 'Permalink me' }),
+  ).toHaveCount(0)
+})

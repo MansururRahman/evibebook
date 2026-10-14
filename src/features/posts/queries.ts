@@ -104,6 +104,21 @@ export async function getUserPosts(
   return { posts: items.map(toFeedPost), nextCursor }
 }
 
+/** A single post, or null when it does not exist or the viewer may not see it. */
+export async function getPost(
+  viewerId: string,
+  postId: string,
+): Promise<FeedPost | null> {
+  const row = await prisma.post.findUnique({
+    where: { id: postId },
+    include: postInclude(viewerId),
+  })
+  if (!row) return null
+  const friendIds = await getFriendIds(viewerId)
+  if (!canViewPostsOf(viewerId, row.authorId, friendIds)) return null
+  return toFeedPost(row)
+}
+
 /** Whether `viewerId` may interact with (like, comment on) the given post. */
 export async function canAccessPost(viewerId: string, postId: string) {
   const post = await prisma.post.findUnique({

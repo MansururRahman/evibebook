@@ -1,6 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/db'
 import { requireUser } from '@/lib/session'
 import { deleteUpload, prepareUpload, writeUpload } from '@/lib/storage'
@@ -68,8 +69,13 @@ function refreshOnFailure(result: ActionResult) {
   if (!result.ok) revalidatePath('/', 'layout')
 }
 
-export async function deletePostForm(postId: string): Promise<void> {
-  refreshOnFailure(await deletePost(postId))
+export async function deletePostForm(
+  postId: string,
+  redirectTo?: string,
+): Promise<void> {
+  const result = await deletePost(postId)
+  refreshOnFailure(result)
+  if (result.ok && redirectTo) redirect(redirectTo)
 }
 
 export async function toggleLike(postId: string): Promise<ActionResult> {

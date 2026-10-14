@@ -23,12 +23,15 @@ function plural(n: number, word: string) {
 export function PostCard({
   post,
   viewerId,
+  afterDelete,
 }: {
   post: FeedPost
   viewerId: string
+  /** Where to go after deleting (used on the post's own page, which would otherwise 404). */
+  afterDelete?: string
 }) {
   const isAuthor = post.authorId === viewerId
-  const remove = deletePostForm.bind(null, post.id)
+  const remove = deletePostForm.bind(null, post.id, afterDelete)
 
   return (
     <Card>
@@ -47,9 +50,11 @@ export function PostCard({
               {post.author.name}
             </Link>
             <p className="text-xs text-zinc-500">
-              <time dateTime={post.createdAt.toISOString()}>
-                {formatDate(post.createdAt)}
-              </time>
+              <Link href={`/p/${post.id}`} className="hover:underline">
+                <time dateTime={post.createdAt.toISOString()}>
+                  {formatDate(post.createdAt)}
+                </time>
+              </Link>
             </p>
           </div>
           {isAuthor ? (
