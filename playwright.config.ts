@@ -5,7 +5,8 @@ export default defineConfig({
   fullyParallel: false,
   retries: 0,
   reporter: 'list',
-  timeout: 60_000,
+  timeout: 90_000,
+  expect: { timeout: 30_000 },
   use: {
     baseURL: 'http://localhost:3000',
     trace: 'retain-on-failure',

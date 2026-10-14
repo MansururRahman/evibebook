@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { logOut } from '@/features/auth/actions'
 import { Button } from '@/components/ui/Button'
 import type { CurrentUser } from '@/lib/session'
+import { Avatar } from '@/features/profile/components/Avatar'
 
 export function Navbar({ user }: { user: CurrentUser }) {
   return (
@@ -16,8 +17,9 @@ export function Navbar({ user }: { user: CurrentUser }) {
         <span className="flex-1" />
         <Link
           href={`/u/${user.username}`}
-          className="text-sm font-medium text-zinc-900 hover:underline"
+          className="flex items-center gap-2 text-sm font-medium text-zinc-900 hover:underline"
         >
+          <Avatar name={user.name} avatarUrl={user.avatarUrl} size="sm" />
           {user.name}
         </Link>
         <form action={logOut}>
