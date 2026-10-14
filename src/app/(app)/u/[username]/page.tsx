@@ -5,6 +5,8 @@ import { ProfileHeader } from '@/features/profile/components/ProfileHeader'
 import { PostList } from '@/features/posts/components/PostList'
 import { getUserPosts } from '@/features/posts/queries'
 import { requireUser } from '@/lib/session'
+import { FriendButton } from '@/features/friends/components/FriendButton'
+import { getRelationship } from '@/features/friends/queries'
 
 export async function generateMetadata({
   params,
@@ -24,15 +26,28 @@ export default async function ProfilePage({
   const profile = await getProfileByUsername(username)
   if (!profile) notFound()
 
-  const page = await getUserPosts(
-    viewer.id,
-    profile.id,
-    typeof cursor === 'string' ? cursor : undefined,
-  )
+  const [page, { relationship, row }] = await Promise.all([
+    getUserPosts(
+      viewer.id,
+      profile.id,
+      typeof cursor === 'string' ? cursor : undefined,
+    ),
+    getRelationship(viewer.id, profile.id),
+  ])
 
   return (
     <div className="flex flex-col gap-4">
-      <ProfileHeader profile={profile} isSelf={profile.id === viewer.id} />
+      <ProfileHeader
+        profile={profile}
+        isSelf={profile.id === viewer.id}
+        actions={
+          <FriendButton
+            otherId={profile.id}
+            relationship={relationship}
+            row={row}
+          />
+        }
+      />
       {page ? (
         <PostList
           posts={page.posts}
