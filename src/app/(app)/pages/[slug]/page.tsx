@@ -37,7 +37,7 @@ export default async function PageView({
     <div className="flex flex-col gap-4">
       <PageHeader page={page} />
       {canPostAsPage(page.viewerRole) && !cursor ? (
-        <PostComposer pageId={page.id} />
+        <PostComposer viewer={viewer} pageId={page.id} />
       ) : null}
       <PostList
         posts={posts.posts}

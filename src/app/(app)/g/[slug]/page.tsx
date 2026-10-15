@@ -38,7 +38,9 @@ export default async function GroupPage({
   return (
     <div className="flex flex-col gap-4">
       <GroupHeader group={group} />
-      {group.viewerRole && !cursor ? <PostComposer groupId={group.id} /> : null}
+      {group.viewerRole && !cursor ? (
+        <PostComposer viewer={viewer} groupId={group.id} />
+      ) : null}
       {page ? (
         <PostList
           posts={page.posts}

@@ -16,7 +16,7 @@ export default async function FeedPage({ searchParams }: PageProps<'/feed'>) {
 
   return (
     <div className="flex flex-col gap-4">
-      {cursor ? null : <PostComposer />}
+      {cursor ? null : <PostComposer viewer={user} />}
       <PostList
         posts={posts}
         viewerId={user.id}
