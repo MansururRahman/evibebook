@@ -8,10 +8,12 @@ export function Navbar({
   user,
   pendingRequests,
   unreadMessages,
+  unreadNotifications,
 }: {
   user: CurrentUser
   pendingRequests: number
   unreadMessages: number
+  unreadNotifications: number
 }) {
   return (
     <nav className="border-b border-zinc-200 bg-white">
@@ -30,6 +32,14 @@ export function Navbar({
           className="whitespace-nowrap text-sm text-zinc-700 hover:underline"
         >
           {unreadMessages > 0 ? `Messages (${unreadMessages})` : 'Messages'}
+        </Link>
+        <Link
+          href="/notifications"
+          className="whitespace-nowrap text-sm text-zinc-700 hover:underline"
+        >
+          {unreadNotifications > 0
+            ? `Notifications (${unreadNotifications})`
+            : 'Notifications'}
         </Link>
         <Link
           href="/friends"
