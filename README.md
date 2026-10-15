@@ -1,6 +1,6 @@
 # evibebook
 
-A Facebook-style social network: profiles, posts with images, a friends-only feed, reactions (Like, Love, Care, Haha, Wow, Sad, Angry), comments, and friend requests.
+A Facebook-style social network: profiles, posts with images, a friends-only feed, reactions (Like, Love, Care, Haha, Wow, Sad, Angry), comments, friend requests, and public or private groups with admins, moderators and join requests.
 
 Stack: Next.js (App Router) + TypeScript, Prisma + PostgreSQL, Auth.js credentials login, Tailwind CSS.
 

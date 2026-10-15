@@ -17,9 +17,10 @@ export function PostComposer({ groupId }: { groupId?: string }) {
   const formRef = useRef<HTMLFormElement>(null)
   const image = useImageField()
 
-  // Clear the form after a successful post (the action result flips to ok with a new object).
+  // Clear the form after a successful post: the action returns a new ok object.
+  // Skip the initial object, or text typed before hydration would be wiped on mount.
   useEffect(() => {
-    if (state.ok) {
+    if (state.ok && state !== initial) {
       formRef.current?.reset()
       image.reset()
     }
