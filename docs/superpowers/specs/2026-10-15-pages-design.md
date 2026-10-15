@@ -93,8 +93,11 @@ namespaces are independent.
 
 Deleting a page cascades to its team, followers and posts; the action collects
 post image URLs first and removes the files after the row delete succeeds,
-mirroring `deleteGroup`. Deleting a user cascades only their team rows and
-follows.
+mirroring `deleteGroup`. Deleting a user cascades their team rows and follows,
+and — through the pre-existing `Post.authorId` cascade — the posts they made as
+the page. There is no account-deletion feature yet; before one ships, page
+posts should survive their acting author (e.g. `SetNull` on `authorId` for page
+posts), and this spec should be revisited then.
 
 Creating a page inserts the page, the creator as ADMIN and the creator as a
 follower in one transaction.

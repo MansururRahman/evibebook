@@ -101,6 +101,15 @@ test('followers see page posts as the page; the admin profile does not show them
 
   await a.page.goto(url)
   await postAs(a.page, 'Fresh bread at 7')
+  // The permalink's title names the page, never the acting admin
+  const permalink = await a.page
+    .getByRole('article')
+    .filter({ hasText: 'Fresh bread at 7' })
+    .locator('a:has(time)')
+    .getAttribute('href')
+  await a.page.goto(permalink!)
+  await expect(a.page).toHaveTitle(new RegExp(`Post by ${name}`))
+  expect(await a.page.title()).not.toContain(a.user.name)
 
   await b.page.goto('/feed')
   const article = b.page
@@ -137,13 +146,27 @@ test('editors post as the page; outsiders cannot; a removed editor is refused', 
   const name = `Studio ${Date.now()}`
   const url = await createPage(a.page, name)
 
+  // C is not on the team: no composer, team page 404
+  await c.page.goto(url)
+  await expect(c.page.getByLabel("What's on your mind?")).toHaveCount(0)
+  expect((await c.page.goto(`${url}/team`))?.status()).toBe(404)
+
   // Unknown username gives a readable message
   await a.page.goto(`${url}/team`)
   await a.page.getByLabel('Username').fill('nobody_here_xyz')
   await a.page.getByRole('button', { name: 'Add to team' }).click()
   await expect(a.page.getByText('No user with that username')).toBeVisible()
 
+  // Two successful adds in a row; the form clears after each one
   await addToTeam(a.page, url, b.user.username, 'Editor')
+  await expect(a.page.getByLabel('Username')).toHaveValue('')
+  await a.page.getByLabel('Username').fill(c.user.username)
+  await a.page.getByRole('button', { name: 'Add to team' }).click()
+  await expect(
+    a.page.getByRole('region', { name: 'Team' }).getByRole('listitem'),
+  ).toHaveCount(3)
+  await expect(a.page.getByLabel('Username')).toHaveValue('')
+
   // Adding again is refused
   await a.page.getByLabel('Username').fill(b.user.username)
   await a.page.getByRole('button', { name: 'Add to team' }).click()
@@ -158,11 +181,6 @@ test('editors post as the page; outsiders cannot; a removed editor is refused', 
       .getByRole('link', { name }),
   ).toBeVisible()
 
-  // C is not on the team: no composer, team page 404
-  await c.page.goto(url)
-  await expect(c.page.getByLabel("What's on your mind?")).toHaveCount(0)
-  expect((await c.page.goto(`${url}/team`))?.status()).toBe(404)
-
   // B opens the page in a second tab, then A removes B; the stale composer is refused
   const stale = await b.page.context().newPage()
   await stale.goto(url)
@@ -175,7 +193,7 @@ test('editors post as the page; outsiders cannot; a removed editor is refused', 
     .click()
   await expect(
     a.page.getByRole('region', { name: 'Team' }).getByRole('listitem'),
-  ).toHaveCount(1)
+  ).toHaveCount(2)
   await stale.getByLabel("What's on your mind?").fill('Still an editor?')
   await stale.getByRole('button', { name: 'Post' }).click()
   await expect(

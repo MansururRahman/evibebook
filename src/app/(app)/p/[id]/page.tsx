@@ -10,7 +10,9 @@ export async function generateMetadata({
   const viewer = await requireUser()
   const { id } = await params
   const post = await getPost(viewer.id, id)
-  return { title: post ? `Post by ${post.author.name}` : 'Post' }
+  // Page posts are from the page; the acting admin is never shown, not even here.
+  const by = post ? (post.page ? post.page.name : post.author.name) : null
+  return { title: by ? `Post by ${by}` : 'Post' }
 }
 
 export default async function PostPage({ params }: PageProps<'/p/[id]'>) {
