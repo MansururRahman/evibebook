@@ -25,7 +25,7 @@ export function TopBar({
       aria-label="Main"
       className="sticky top-0 z-20 h-14 bg-white shadow-sm ring-1 ring-black/5"
     >
-      <div className="mx-auto grid h-full max-w-7xl grid-cols-[1fr_auto_1fr] items-center gap-2 px-2 sm:px-4">
+      <div className="mx-auto grid h-full max-w-7xl grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 px-2 sm:grid-cols-[1fr_auto_1fr] sm:px-4">
         <div className="flex items-center gap-2">
           <Link
             href="/feed"
@@ -53,7 +53,7 @@ export function TopBar({
           </form>
         </div>
 
-        <div className="h-full">
+        <div className="h-full min-w-0">
           <NavTabs pendingRequests={pendingRequests} />
         </div>
 

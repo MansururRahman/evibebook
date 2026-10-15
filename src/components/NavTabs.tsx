@@ -17,16 +17,16 @@ const tabs = [
 export function NavTabs({ pendingRequests }: { pendingRequests: number }) {
   const pathname = usePathname()
   return (
-    <ul className="flex h-full items-stretch gap-1">
+    <ul className="flex h-full items-stretch justify-center gap-0.5 sm:gap-1">
       {tabs.map(({ href, label, Icon }) => {
         const active = isActive(pathname, href)
         return (
-          <li key={href} className="flex">
+          <li key={href} className="flex min-w-0 flex-1 sm:flex-none">
             <Link
               href={href}
               title={label}
               aria-current={active ? 'page' : undefined}
-              className={`relative flex w-14 items-center justify-center rounded-lg border-b-[3px] sm:w-20 ${
+              className={`relative flex w-full items-center justify-center rounded-lg border-b-[3px] sm:w-20 ${
                 active
                   ? 'border-blue-600 text-blue-600'
                   : 'border-transparent text-zinc-500 hover:bg-zinc-100'
@@ -34,7 +34,7 @@ export function NavTabs({ pendingRequests }: { pendingRequests: number }) {
             >
               <Icon className="h-7 w-7" />
               {href === '/friends' ? (
-                <span className="absolute top-2 right-2 sm:right-4">
+                <span className="absolute top-2 right-1 sm:right-4">
                   <CountBadge label={label} count={pendingRequests} />
                 </span>
               ) : (
