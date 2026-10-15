@@ -129,6 +129,8 @@ test('followers see page posts as the page; the admin profile does not show them
 test('editors post as the page; outsiders cannot; a removed editor is refused', async ({
   browser,
 }) => {
+  // Three users and many round-trips: give this one triple the usual budget.
+  test.slow()
   const a = await userIn(browser, 'pea')
   const b = await userIn(browser, 'peb')
   const c = await userIn(browser, 'pec')
