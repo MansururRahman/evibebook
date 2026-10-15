@@ -39,9 +39,13 @@ export default async function ThreadPage({
     ),
   ])
   const friends = canMessage(viewer.id, other.id, friendIds)
-  // Opening the latest page means the viewer has seen it; idempotent, own row only.
-  if (thread.conversationId && !cursor)
-    await markRead(viewer.id, thread.conversationId)
+  // Opening the latest page means the viewer has seen it; idempotent, own row
+  // only. When it changed something the navbar badge (rendered by the layout,
+  // in parallel with this page) is stale, so the refresher re-renders once.
+  const marked =
+    thread.conversationId && !cursor
+      ? await markRead(viewer.id, thread.conversationId)
+      : false
 
   return (
     <div className="flex flex-col gap-4">
@@ -79,7 +83,7 @@ export default async function ThreadPage({
           </p>
         )}
       </Card>
-      {cursor ? null : <ThreadRefresher />}
+      {cursor ? null : <ThreadRefresher refreshOnMount={marked} scrollToEnd />}
     </div>
   )
 }

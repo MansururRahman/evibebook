@@ -78,7 +78,10 @@ test('friends can message; strangers cannot; unread badge and inbox follow along
   await expect(row).toContainText('Unread')
   await row.getByRole('link').click()
   await expect(b.page).toHaveURL(new RegExp(`/messages/${a.user.username}$`))
-  await expect(b.page.getByRole('navigation')).not.toContainText('Messages (')
+  // Opening the thread clears the badge right away, not at the next 10 s refresh
+  await expect(b.page.getByRole('navigation')).not.toContainText('Messages (', {
+    timeout: 8_000,
+  })
 
   // B replies; A's open thread picks it up without a reload
   await send(b.page, 'Hei Alice!')
@@ -133,6 +136,8 @@ test('long threads page 50 at a time with Load earlier', async ({
   await a.page.goto(`/messages/${b.user.username}`)
   const list = a.page.getByRole('list', { name: 'Messages' })
   await expect(list.getByRole('listitem')).toHaveCount(50)
+  // A long thread opens at its newest end, with the composer in view
+  await expect(a.page.getByLabel('Write a message')).toBeInViewport()
   await expect(list.getByRole('listitem').first()).toContainText(
     'Seeded message 11',
   )

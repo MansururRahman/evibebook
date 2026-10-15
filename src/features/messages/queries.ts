@@ -108,13 +108,28 @@ export async function countUnread(viewerId: string): Promise<number> {
   return rows[0]?.n ?? 0
 }
 
-/** The viewer has seen everything in this conversation up to now. */
+/**
+ * The viewer has seen everything in this conversation up to now. Returns true
+ * when that actually changed something (there was an unread message from the
+ * other side), so the caller can refresh the navbar badge once.
+ */
 export async function markRead(
   viewerId: string,
   conversationId: string,
-): Promise<void> {
-  await prisma.conversationParticipant.updateMany({
-    where: { conversationId, userId: viewerId },
+): Promise<boolean> {
+  const latestFromOther = await prisma.message.findFirst({
+    where: { conversationId, senderId: { not: viewerId } },
+    orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+    select: { createdAt: true },
+  })
+  if (!latestFromOther) return false
+  const { count } = await prisma.conversationParticipant.updateMany({
+    where: {
+      conversationId,
+      userId: viewerId,
+      lastReadAt: { lt: latestFromOther.createdAt },
+    },
     data: { lastReadAt: new Date() },
   })
+  return count > 0
 }
