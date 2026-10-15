@@ -42,6 +42,16 @@ export async function logIn(
 }
 
 export async function logOut(page: Page) {
+  await openAccountMenu(page)
   await page.getByRole('button', { name: 'Log out' }).click()
   await expect(page).toHaveURL(/\/login$/)
+}
+
+/** Opens the avatar dropdown at the top right (profile, settings, log out). */
+export async function openAccountMenu(page: Page) {
+  // A click that lands before React has hydrated does nothing, so retry.
+  await expect(async () => {
+    await page.getByRole('button', { name: 'Account menu' }).click()
+    await expect(page.getByRole('menu')).toBeVisible({ timeout: 1_000 })
+  }).toPass()
 }

@@ -97,11 +97,12 @@ export function PostCard({
           <p className="whitespace-pre-wrap text-sm">{post.body}</p>
         ) : null}
         {post.imageUrl ? <PostImage src={post.imageUrl} /> : null}
-        <footer className="flex items-center gap-3 border-t border-zinc-100 pt-2 text-xs text-zinc-500">
-          <ReactionButton postId={post.id} current={post.myReaction} />
+        <div className="flex items-center justify-between text-xs text-zinc-500">
           <ReactionSummary counts={post.reactionCounts} />
-          <span>·</span>
           <span>{plural(post.commentCount, 'comment')}</span>
+        </div>
+        <footer className="flex items-center gap-3 border-y border-zinc-100 py-1 text-xs text-zinc-500">
+          <ReactionButton postId={post.id} current={post.myReaction} />
         </footer>
         <CommentList
           comments={post.comments}

@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { logIn, logOut, newUser, signUp } from './helpers'
+import { logIn, logOut, newUser, openAccountMenu, signUp } from './helpers'
 import { deleteUserByEmail } from './db'
 
 test('visiting the app logged out redirects to login', async ({ page }) => {
@@ -13,6 +13,14 @@ test('sign up, log out, log in again', async ({ page }) => {
   const user = newUser('auth')
   await signUp(page, user)
   await expect(page.getByRole('navigation')).toContainText(user.name)
+
+  // The avatar menu holds the profile shortcuts and the log out button
+  await openAccountMenu(page)
+  await expect(
+    page.getByRole('menuitem', { name: 'Edit profile' }),
+  ).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('menu')).toHaveCount(0)
 
   await logOut(page)
   await page.goto('/feed')
