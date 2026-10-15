@@ -7,9 +7,11 @@ import { Avatar } from '@/features/profile/components/Avatar'
 export function Navbar({
   user,
   pendingRequests,
+  unreadMessages,
 }: {
   user: CurrentUser
   pendingRequests: number
+  unreadMessages: number
 }) {
   return (
     <nav className="border-b border-zinc-200 bg-white">
@@ -19,6 +21,12 @@ export function Navbar({
         </Link>
         <Link href="/feed" className="text-sm text-zinc-700 hover:underline">
           Feed
+        </Link>
+        <Link
+          href="/messages"
+          className="text-sm text-zinc-700 hover:underline"
+        >
+          {unreadMessages > 0 ? `Messages (${unreadMessages})` : 'Messages'}
         </Link>
         <Link href="/friends" className="text-sm text-zinc-700 hover:underline">
           {pendingRequests > 0 ? `Friends (${pendingRequests})` : 'Friends'}
