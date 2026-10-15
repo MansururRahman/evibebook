@@ -2,6 +2,7 @@ import { SubmitButton } from '@/components/ui/SubmitButton'
 import { Card } from '@/components/ui/Card'
 import { unfriendForm } from '../actions'
 import type { Person } from '../queries'
+import { MessageLink } from '@/features/messages/components/MessageLink'
 import { PersonRow } from './PersonRow'
 
 export function FriendList({ friends }: { friends: Person[] }) {
@@ -19,6 +20,7 @@ export function FriendList({ friends }: { friends: Person[] }) {
           <ul className="divide-y divide-zinc-100">
             {friends.map((p) => (
               <PersonRow key={p.id} person={p}>
+                <MessageLink username={p.username} />
                 <form action={unfriendForm.bind(null, p.id)}>
                   <SubmitButton variant="ghost">Unfriend</SubmitButton>
                 </form>

@@ -7,6 +7,7 @@ import { getUserPosts } from '@/features/posts/queries'
 import { requireUser } from '@/lib/session'
 import { FriendButton } from '@/features/friends/components/FriendButton'
 import { getRelationship } from '@/features/friends/queries'
+import { MessageLink } from '@/features/messages/components/MessageLink'
 
 export async function generateMetadata({
   params,
@@ -41,11 +42,16 @@ export default async function ProfilePage({
         profile={profile}
         isSelf={profile.id === viewer.id}
         actions={
-          <FriendButton
-            otherId={profile.id}
-            relationship={relationship}
-            row={row}
-          />
+          <div className="flex items-center gap-2">
+            {relationship === 'friends' ? (
+              <MessageLink username={profile.username} />
+            ) : null}
+            <FriendButton
+              otherId={profile.id}
+              relationship={relationship}
+              row={row}
+            />
+          </div>
         }
       />
       {page ? (

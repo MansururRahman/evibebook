@@ -71,6 +71,11 @@ export async function deleteUsersByEmailDomain(
        WHERE NOT EXISTS (SELECT 1 FROM "PageMember" m WHERE m."pageId" = p.id)`,
     )
     rows.push(...orphanAvatars.rows)
+    // Conversations whose participants are all gone are orphans too.
+    await client.query(
+      `DELETE FROM "Conversation" c
+       WHERE NOT EXISTS (SELECT 1 FROM "ConversationParticipant" p WHERE p."conversationId" = c.id)`,
+    )
 
     let files = 0
     for (const { url } of rows) {
@@ -85,5 +90,40 @@ export async function deleteUsersByEmailDomain(
       )
     }
     return { users: deleted.rowCount ?? 0, files }
+  })
+}
+
+/** Insert a conversation with `count` messages from `fromEmail` to `toEmail`, one second apart. */
+export function seedMessages(
+  fromEmail: string,
+  toEmail: string,
+  count: number,
+): Promise<void> {
+  return withClient(async (client) => {
+    const users = await client.query<{ id: string; email: string }>(
+      'SELECT id, email FROM "User" WHERE email = ANY($1)',
+      [[fromEmail, toEmail]],
+    )
+    const from = users.rows.find((u) => u.email === fromEmail)!.id
+    const to = users.rows.find((u) => u.email === toEmail)!.id
+    const pairKey = from < to ? `${from}:${to}` : `${to}:${from}`
+    const conv = await client.query<{ id: string }>(
+      `INSERT INTO "Conversation" ("id", "pairKey", "lastMessageAt")
+       VALUES (gen_random_uuid()::text, $1, now()) RETURNING id`,
+      [pairKey],
+    )
+    const id = conv.rows[0].id
+    await client.query(
+      `INSERT INTO "ConversationParticipant" ("conversationId", "userId", "lastReadAt")
+       VALUES ($1, $2, now() - interval '1 day'), ($1, $3, now() - interval '1 day')`,
+      [id, from, to],
+    )
+    await client.query(
+      `INSERT INTO "Message" ("id", "conversationId", "senderId", "body", "createdAt")
+       SELECT gen_random_uuid()::text, $1, $2, 'Seeded message ' || n,
+              now() - interval '1 hour' + (n || ' seconds')::interval
+       FROM generate_series(1, $3::int) AS n`,
+      [id, from, count],
+    )
   })
 }
