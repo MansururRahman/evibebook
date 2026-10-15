@@ -44,6 +44,7 @@ export function AccountMenu({
     <div ref={rootRef} className="relative">
       <button
         type="button"
+        aria-label="Account menu"
         aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={menuId}
@@ -54,6 +55,7 @@ export function AccountMenu({
         <span className="absolute -right-0.5 -bottom-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-zinc-200 ring-2 ring-white">
           <ChevronDownIcon className="h-3 w-3 text-zinc-700" />
         </span>
+        {/* Keeps the user's name in the navigation's text; the accessible name is the aria-label. */}
         <span className="sr-only">{user.name}</span>
       </button>
       {open ? (

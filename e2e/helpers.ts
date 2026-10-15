@@ -49,9 +49,6 @@ export async function logOut(page: Page) {
 
 /** Opens the avatar dropdown at the top right (profile, settings, log out). */
 export async function openAccountMenu(page: Page) {
-  await page
-    .getByRole('navigation')
-    .getByRole('button', { expanded: false })
-    .click()
+  await page.getByRole('button', { name: 'Account menu' }).click()
   await expect(page.getByRole('menu')).toBeVisible()
 }
