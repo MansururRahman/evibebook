@@ -12,7 +12,7 @@ import { useImageField } from '@/components/ui/useImageField'
 
 const initial: ActionResult = { ok: true }
 
-export function PostComposer() {
+export function PostComposer({ groupId }: { groupId?: string }) {
   const [state, action, pending] = useActionState(createPost, initial)
   const formRef = useRef<HTMLFormElement>(null)
   const image = useImageField()
@@ -35,6 +35,9 @@ export function PostComposer() {
         className="flex flex-col gap-3"
       >
         <FormError message={!state.ok ? state.error : undefined} />
+        {groupId ? (
+          <input type="hidden" name="groupId" value={groupId} />
+        ) : null}
         <Textarea
           label="What's on your mind?"
           name="body"

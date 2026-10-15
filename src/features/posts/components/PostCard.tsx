@@ -31,7 +31,6 @@ export function PostCard({
   /** Where to go after deleting (used on the post's own page, which would otherwise 404). */
   afterDelete?: string
 }) {
-  const isAuthor = post.authorId === viewerId
   const remove = deletePostForm.bind(null, post.id, afterDelete)
 
   return (
@@ -44,12 +43,25 @@ export function PostCard({
             size="md"
           />
           <div className="min-w-0 flex-1">
-            <Link
-              href={`/u/${post.author.username}`}
-              className="font-medium hover:underline"
-            >
-              {post.author.name}
-            </Link>
+            <p className="font-medium">
+              <Link
+                href={`/u/${post.author.username}`}
+                className="hover:underline"
+              >
+                {post.author.name}
+              </Link>
+              {post.group ? (
+                <span className="font-normal text-zinc-500">
+                  {' in '}
+                  <Link
+                    href={`/g/${post.group.slug}`}
+                    className="font-medium text-zinc-700 hover:underline"
+                  >
+                    {post.group.name}
+                  </Link>
+                </span>
+              ) : null}
+            </p>
             <p className="text-xs text-zinc-500">
               <Link href={`/p/${post.id}`} className="hover:underline">
                 <time dateTime={post.createdAt.toISOString()}>
@@ -58,7 +70,7 @@ export function PostCard({
               </Link>
             </p>
           </div>
-          {isAuthor ? (
+          {post.canDelete ? (
             <form action={remove}>
               <Button type="submit" variant="ghost" className="text-xs">
                 Delete
