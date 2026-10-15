@@ -1,10 +1,11 @@
 import Link from 'next/link'
 import { logOut } from '@/features/auth/actions'
-import type { CurrentUser } from '@/lib/session'
+import type { NavUser } from '@/lib/nav'
 import { AccountMenu } from './AccountMenu'
 import { CountBadge } from './CountBadge'
 import { NavTabs } from './NavTabs'
-import { BellIcon, ChatIcon, SearchIcon } from './icons'
+import { BellIcon, ChatIcon, LogOutIcon, SearchIcon } from './icons'
+import { IconCircle, menuRowClass } from './MenuRow'
 
 const iconButton =
   'relative flex h-10 w-10 items-center justify-center rounded-full bg-zinc-200 text-zinc-800 hover:bg-zinc-300'
@@ -15,7 +16,7 @@ export function TopBar({
   unreadMessages,
   unreadNotifications,
 }: {
-  user: CurrentUser
+  user: NavUser
   pendingRequests: number
   unreadMessages: number
   unreadNotifications: number
@@ -38,16 +39,17 @@ export function TopBar({
             method="get"
             action="/people"
             role="search"
-            className="hidden md:block"
+            aria-label="Search evibebook"
+            className="hidden min-w-0 flex-1 md:block"
           >
-            <label className="relative block">
+            <label className="relative block max-w-60">
               <span className="sr-only">Search evibebook</span>
               <SearchIcon className="pointer-events-none absolute top-1/2 left-3 h-5 w-5 -translate-y-1/2 text-zinc-500" />
               <input
                 type="search"
                 name="q"
                 placeholder="Search evibebook"
-                className="h-10 w-60 rounded-full bg-zinc-100 pr-4 pl-10 text-sm outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-blue-500"
+                className="h-10 w-full rounded-full bg-zinc-100 pr-4 pl-10 text-sm outline-none placeholder:text-zinc-500 focus:ring-2 focus:ring-blue-500"
               />
             </label>
           </form>
@@ -73,11 +75,11 @@ export function TopBar({
           <AccountMenu
             user={user}
             logOutForm={
-              <form action={logOut} className="flex-1">
-                <button
-                  type="submit"
-                  className="flex w-full items-center gap-2 text-left"
-                >
+              <form action={logOut}>
+                <button type="submit" role="menuitem" className={menuRowClass}>
+                  <IconCircle>
+                    <LogOutIcon className="h-5 w-5" />
+                  </IconCircle>
                   Log out
                 </button>
               </form>

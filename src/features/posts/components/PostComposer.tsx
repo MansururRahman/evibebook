@@ -78,31 +78,33 @@ export function PostComposer({
           <div className="flex min-w-0 items-center gap-2">
             <label
               htmlFor={fileId}
-              className="flex cursor-pointer items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-100"
+              className="flex shrink-0 cursor-pointer items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-100 focus-within:ring-2 focus-within:ring-blue-500"
             >
               <PhotoIcon className="h-6 w-6 text-green-600" />
               Photo
+              <input
+                id={fileId}
+                name="image"
+                type="file"
+                accept={ACCEPTED_IMAGE_TYPES}
+                aria-label="Image"
+                aria-invalid={image.error ? true : undefined}
+                aria-describedby={image.error ? fileErrorId : undefined}
+                onChange={(event) => {
+                  image.onChange(event)
+                  setFileName(event.target.files?.[0]?.name ?? null)
+                }}
+                className="sr-only"
+              />
             </label>
-            <input
-              id={fileId}
-              name="image"
-              type="file"
-              accept={ACCEPTED_IMAGE_TYPES}
-              aria-label="Image"
-              aria-invalid={image.error ? true : undefined}
-              aria-describedby={image.error ? fileErrorId : undefined}
-              onChange={(event) => {
-                image.onChange(event)
-                setFileName(event.target.files?.[0]?.name ?? null)
-              }}
-              className="sr-only"
-            />
             {image.error ? (
-              <p id={fileErrorId} className="truncate text-xs text-red-600">
+              <p id={fileErrorId} className="min-w-0 text-xs text-red-600">
                 {image.error}
               </p>
             ) : fileName ? (
-              <p className="truncate text-xs text-zinc-500">{fileName}</p>
+              <p className="min-w-0 truncate text-xs text-zinc-500">
+                {fileName}
+              </p>
             ) : null}
           </div>
           <Button type="submit" disabled={pending || Boolean(image.error)}>

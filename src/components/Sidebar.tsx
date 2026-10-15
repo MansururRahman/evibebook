@@ -3,8 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Avatar } from '@/features/profile/components/Avatar'
-import type { CurrentUser } from '@/lib/session'
-import { isActive } from '@/lib/nav'
+import { isActive, type NavUser } from '@/lib/nav'
 import {
   BellIcon,
   ChatIcon,
@@ -32,7 +31,7 @@ function rowClass(active: boolean) {
 }
 
 /** Left column of shortcuts; only shown on large screens. */
-export function Sidebar({ user }: { user: CurrentUser }) {
+export function Sidebar({ user }: { user: NavUser }) {
   const pathname = usePathname()
   const profileHref = `/u/${user.username}`
   return (

@@ -1,3 +1,14 @@
+/** The part of the signed-in user the navigation shell needs; nothing else reaches the client. */
+export type NavUser = {
+  name: string
+  username: string
+  avatarUrl: string | null
+}
+
+export function toNavUser(user: NavUser): NavUser {
+  return { name: user.name, username: user.username, avatarUrl: user.avatarUrl }
+}
+
 /** Extra path prefixes each top-level section owns, besides its own sub-routes. */
 const ALIASES: Record<string, string[]> = {
   '/groups': ['/g'],

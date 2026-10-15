@@ -3,11 +3,9 @@
 import Link from 'next/link'
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { Avatar } from '@/features/profile/components/Avatar'
-import type { CurrentUser } from '@/lib/session'
-import { ChevronDownIcon, LogOutIcon, PencilIcon, PeopleIcon } from './icons'
-
-const rowClass =
-  'flex items-center gap-3 rounded-lg px-2 py-2 text-sm font-medium text-zinc-900 hover:bg-zinc-100'
+import type { NavUser } from '@/lib/nav'
+import { ChevronDownIcon, PencilIcon, PeopleIcon } from './icons'
+import { IconCircle, menuRowClass as rowClass } from './MenuRow'
 
 /**
  * The avatar button at the top right and its dropdown. `logOutForm` is the
@@ -17,11 +15,12 @@ export function AccountMenu({
   user,
   logOutForm,
 }: {
-  user: CurrentUser
+  user: NavUser
   logOutForm: ReactNode
 }) {
   const [open, setOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
   const menuId = useId()
 
   useEffect(() => {
@@ -30,7 +29,9 @@ export function AccountMenu({
       if (!rootRef.current?.contains(event.target as Node)) setOpen(false)
     }
     function onKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') setOpen(false)
+      if (event.key !== 'Escape') return
+      setOpen(false)
+      triggerRef.current?.focus()
     }
     document.addEventListener('pointerdown', onPointerDown)
     document.addEventListener('keydown', onKeyDown)
@@ -41,8 +42,16 @@ export function AccountMenu({
   }, [open])
 
   return (
-    <div ref={rootRef} className="relative">
+    <div
+      ref={rootRef}
+      className="relative"
+      onBlur={(event) => {
+        // Tabbing out of the menu closes it; pointer clicks are handled above.
+        if (!rootRef.current?.contains(event.relatedTarget)) setOpen(false)
+      }}
+    >
       <button
+        ref={triggerRef}
         type="button"
         aria-label="Account menu"
         aria-haspopup="menu"
@@ -102,22 +111,9 @@ export function AccountMenu({
             </IconCircle>
             Find people
           </Link>
-          <div className={rowClass}>
-            <IconCircle>
-              <LogOutIcon className="h-5 w-5" />
-            </IconCircle>
-            {logOutForm}
-          </div>
+          {logOutForm}
         </div>
       ) : null}
     </div>
-  )
-}
-
-function IconCircle({ children }: { children: ReactNode }) {
-  return (
-    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-zinc-200 text-zinc-800">
-      {children}
-    </span>
   )
 }

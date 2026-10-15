@@ -209,12 +209,13 @@ test('the sole admin cannot demote themselves until another admin exists', async
   const url = await createPage(a.page, `Club ${Date.now()}`)
   await addToTeam(a.page, url, b.user.username, 'Editor')
 
-  const ownRow = a.page.getByRole('listitem').filter({ hasText: a.user.name })
+  const team = a.page.getByRole('region', { name: 'Team' })
+  const ownRow = team.getByRole('listitem').filter({ hasText: a.user.name })
   await a.page.getByLabel(`Role for ${a.user.name}`).selectOption('EDITOR')
   await ownRow.getByRole('button', { name: 'Change role' }).click()
   await expect(ownRow.getByText('Add another admin first')).toBeVisible()
 
-  const bRow = a.page.getByRole('listitem').filter({ hasText: b.user.name })
+  const bRow = team.getByRole('listitem').filter({ hasText: b.user.name })
   await a.page.getByLabel(`Role for ${b.user.name}`).selectOption('ADMIN')
   await bRow.getByRole('button', { name: 'Change role' }).click()
   await expect(a.page.getByLabel(`Role for ${b.user.name}`)).toHaveValue(
