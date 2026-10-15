@@ -9,6 +9,7 @@ import {
   type TransitionAction,
 } from '@/lib/friendship'
 import { fail, type ActionResult } from '@/lib/action-result'
+import { notify } from '@/features/notifications/service'
 import { findFriendshipBetween } from './queries'
 
 function revalidateFriends() {
@@ -42,6 +43,12 @@ export async function sendFriendRequest(userId: string): Promise<ActionResult> {
           where: { id: existing.id },
           data: { status: 'ACCEPTED', respondedAt: new Date() },
         })
+        await notify({
+          userId,
+          type: 'FRIEND_ACCEPTED',
+          actorId: user.id,
+          href: `/u/${user.username}`,
+        })
         revalidateFriends()
         return { ok: true }
       }
@@ -55,6 +62,12 @@ export async function sendFriendRequest(userId: string): Promise<ActionResult> {
     try {
       await prisma.friendship.create({
         data: { requesterId: user.id, addresseeId: userId },
+      })
+      await notify({
+        userId,
+        type: 'FRIEND_REQUEST',
+        actorId: user.id,
+        href: '/friends',
       })
       revalidateFriends()
       return { ok: true }
@@ -87,6 +100,12 @@ async function transition(
     await prisma.friendship.update({
       where: { id: row.id },
       data: { status: 'ACCEPTED', respondedAt: new Date() },
+    })
+    await notify({
+      userId: row.requesterId,
+      type: 'FRIEND_ACCEPTED',
+      actorId: user.id,
+      href: `/u/${user.username}`,
     })
   } else {
     await prisma.friendship.delete({ where: { id: row.id } })

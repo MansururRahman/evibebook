@@ -23,6 +23,7 @@ import {
   keepsAnAdmin,
   type PageRole,
 } from './permissions'
+import { notify } from '@/features/notifications/service'
 import { getViewerPageRole } from './queries'
 
 function revalidatePages() {
@@ -243,6 +244,18 @@ export async function addTeamMember(
     skipDuplicates: true,
   })
   if (count === 0) return fail('Already on the team')
+  const page = await prisma.page.findUnique({
+    where: { id: pageId },
+    select: { slug: true, name: true },
+  })
+  if (page)
+    await notify({
+      userId: target.id,
+      type: 'PAGE_TEAM_ADDED',
+      actorId: user.id,
+      href: `/pages/${page.slug}`,
+      subject: page.name,
+    })
   revalidatePages()
   return OK
 }

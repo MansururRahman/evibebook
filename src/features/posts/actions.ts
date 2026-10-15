@@ -12,6 +12,8 @@ import { canModerate } from '@/features/groups/permissions'
 import { getViewerPageRole } from '@/features/pages/queries'
 import { canPostAsPage } from '@/features/pages/permissions'
 import { commentSchema, postBodySchema } from './schemas'
+import { notify } from '@/features/notifications/service'
+import { subjectFrom } from '@/features/notifications/rules'
 import { postContainer } from './container'
 import { canAccessPost } from './queries'
 
@@ -153,6 +155,14 @@ export async function setReaction(
     create: { userId: user.id, postId, type },
     update: { type },
   })
+  await notify({
+    userId: post.authorId,
+    type: 'REACTION',
+    actorId: user.id,
+    href: `/p/${postId}`,
+    subject: subjectFrom(post.body),
+    targetId: postId,
+  })
   revalidatePost(post.author.username, post.group?.slug, post.page?.slug)
   return { ok: true }
 }
@@ -198,6 +208,13 @@ export async function addComment(
 
   await prisma.comment.create({
     data: { postId, authorId: user.id, body: parsed.data.body },
+  })
+  await notify({
+    userId: post.authorId,
+    type: 'COMMENT',
+    actorId: user.id,
+    href: `/p/${postId}`,
+    subject: subjectFrom(post.body),
   })
   revalidatePost(post.author.username, post.group?.slug, post.page?.slug)
   return { ok: true }

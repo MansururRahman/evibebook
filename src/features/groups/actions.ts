@@ -18,6 +18,7 @@ import {
   isGroupRole,
   type GroupRole,
 } from './permissions'
+import { notify, notifyMany } from '@/features/notifications/service'
 import { getViewerRole } from './queries'
 
 function revalidateGroups() {
@@ -95,12 +96,13 @@ export async function updateGroup(
     )
   }
 
-  const slug = await prisma.$transaction(async (tx) => {
+  const { slug, admitted } = await prisma.$transaction(async (tx) => {
     const group = await tx.group.update({
       where: { id: groupId },
       data: parsed.data,
       select: { slug: true, privacy: true },
     })
+    let admitted: string[] = []
     if (group.privacy === 'PUBLIC') {
       // A group that just became public has no gate: let everyone who was waiting in.
       const pending = await tx.groupJoinRequest.findMany({
@@ -113,9 +115,16 @@ export async function updateGroup(
           skipDuplicates: true,
         })
         await tx.groupJoinRequest.deleteMany({ where: { groupId } })
+        admitted = pending.map((p) => p.userId)
       }
     }
-    return group.slug
+    return { slug: group.slug, admitted }
+  })
+  await notifyMany(admitted, {
+    type: 'GROUP_JOIN_APPROVED',
+    actorId: user.id,
+    href: `/g/${slug}`,
+    subject: parsed.data.name,
   })
 
   revalidateGroups()
@@ -142,7 +151,7 @@ export async function joinGroup(groupId: string): Promise<ActionResult> {
   const user = await requireUser()
   const group = await prisma.group.findUnique({
     where: { id: groupId },
-    select: { privacy: true },
+    select: { privacy: true, slug: true, name: true },
   })
   if (!group) return fail('Group not found')
   if (await getViewerRole(user.id, groupId)) return { ok: true }
@@ -158,6 +167,20 @@ export async function joinGroup(groupId: string): Promise<ActionResult> {
       data: [{ groupId, userId: user.id }],
       skipDuplicates: true,
     })
+    const admins = await prisma.groupMember.findMany({
+      where: { groupId, role: 'ADMIN' },
+      select: { userId: true },
+    })
+    await notifyMany(
+      admins.map((a) => a.userId),
+      {
+        type: 'GROUP_JOIN_REQUEST',
+        actorId: user.id,
+        href: `/g/${group.slug}/members`,
+        subject: group.name,
+        targetId: groupId,
+      },
+    )
   }
   revalidateGroups()
   return { ok: true }
@@ -197,6 +220,20 @@ export async function respondToJoinRequest(
     return true
   })
   if (!handled) return fail('That request was already handled')
+  if (accept) {
+    const group = await prisma.group.findUnique({
+      where: { id: groupId },
+      select: { slug: true, name: true },
+    })
+    if (group)
+      await notify({
+        userId,
+        type: 'GROUP_JOIN_APPROVED',
+        actorId: user.id,
+        href: `/g/${group.slug}`,
+        subject: group.name,
+      })
+  }
   revalidateGroups()
   return { ok: true }
 }
