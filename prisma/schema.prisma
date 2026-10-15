@@ -23,6 +23,10 @@ model User {
   comments         Comment[]
   sentRequests     Friendship[] @relation("FriendshipRequester")
   receivedRequests Friendship[] @relation("FriendshipAddressee")
+
+  createdGroups     Group[]            @relation("GroupCreator")
+  groupMemberships  GroupMember[]
+  groupJoinRequests GroupJoinRequest[]
 }
 
 model Post {
@@ -30,15 +34,18 @@ model Post {
   authorId  String
   body      String   @db.VarChar(2000)
   imageUrl  String?
+  groupId   String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   author    User       @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  group     Group?     @relation(fields: [groupId], references: [id], onDelete: Cascade)
   reactions Reaction[]
   comments  Comment[]
 
   @@index([authorId, createdAt(sort: Desc)])
   @@index([createdAt(sort: Desc), id(sort: Desc)])
+  @@index([groupId, createdAt(sort: Desc), id(sort: Desc)])
 }
 
 enum ReactionType {
@@ -97,4 +104,58 @@ model Friendship {
   @@unique([requesterId, addresseeId])
   @@index([addresseeId, status])
   @@index([requesterId, status])
+}
+
+enum GroupPrivacy {
+  PUBLIC
+  PRIVATE
+}
+
+enum GroupRole {
+  ADMIN
+  MODERATOR
+  MEMBER
+}
+
+model Group {
+  id          String       @id @default(cuid())
+  slug        String       @unique
+  name        String       @db.VarChar(80)
+  description String?      @db.VarChar(500)
+  privacy     GroupPrivacy @default(PUBLIC)
+  creatorId   String
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  creator      User               @relation("GroupCreator", fields: [creatorId], references: [id], onDelete: Cascade)
+  members      GroupMember[]
+  joinRequests GroupJoinRequest[]
+  posts        Post[]
+}
+
+/// One row per user per group; the creator starts as ADMIN.
+model GroupMember {
+  groupId  String
+  userId   String
+  role     GroupRole @default(MEMBER)
+  joinedAt DateTime  @default(now())
+
+  group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([groupId, userId])
+  @@index([userId])
+}
+
+/// Pending request to join a PRIVATE group; accepting moves it to GroupMember.
+model GroupJoinRequest {
+  groupId   String
+  userId    String
+  createdAt DateTime @default(now())
+
+  group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([groupId, userId])
+  @@index([userId])
 }
