@@ -9,13 +9,10 @@ import { CommentForm } from './CommentForm'
 import { CommentList } from './CommentList'
 import { ReactionButton } from './ReactionButton'
 import { ReactionSummary } from './ReactionSummary'
+import { formatDate } from '@/lib/format'
 
-export function formatDate(date: Date): string {
-  return new Intl.DateTimeFormat('en', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(date)
-}
+// Re-exported for existing importers; the implementation lives in lib/format.
+export { formatDate }
 
 function plural(n: number, word: string) {
   return `${n} ${n === 1 ? word : `${word}s`}`

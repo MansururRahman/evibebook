@@ -57,11 +57,14 @@ test('friend request and acceptance notify each side; opening the page clears th
   })
   await expect(request).toHaveAttribute('href', '/friends')
   await expect(list(a.page)).toContainText('New')
-  // Opening the page clears the badge right away
+  // Opening the page clears the badge right away...
   await expect(a.page.getByRole('navigation')).not.toContainText(
     'Notifications (',
     { timeout: 8_000 },
   )
+  // ...and the "New" marker survives that refresh for the rest of this visit
+  await a.page.waitForTimeout(1_500)
+  await expect(list(a.page)).toContainText('New')
   // A second visit shows the row as read
   await a.page.goto('/notifications')
   await expect(list(a.page)).not.toContainText('New')
