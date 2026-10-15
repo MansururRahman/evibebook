@@ -3,10 +3,11 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { z } from 'zod'
+import type { Prisma } from '@/generated/prisma/client'
 import { prisma } from '@/lib/db'
 import { requireUser } from '@/lib/session'
 import { deleteUpload } from '@/lib/storage'
-import { fail, type ActionResult } from '@/lib/action-result'
+import { OK, fail, type ActionResult } from '@/lib/action-result'
 import { groupSchema } from './schemas'
 import { slugify, withSuffix } from './slug'
 import {
@@ -15,8 +16,9 @@ import {
   canManage,
   canRemoveMember,
   isGroupRole,
+  type GroupRole,
 } from './permissions'
-import { countAdmins, getViewerRole } from './queries'
+import { getViewerRole } from './queries'
 
 function revalidateGroups() {
   // Membership and group settings affect the feed, group pages, the groups index and post cards.
@@ -199,16 +201,48 @@ export async function respondToJoinRequest(
   return { ok: true }
 }
 
+/**
+ * Membership changes that must keep "at least one admin" true run inside a
+ * transaction that first locks the group row, so two admins acting at the same
+ * instant are serialised and the second one re-reads the first one's result.
+ */
+async function withGroupLock<T>(
+  groupId: string,
+  fn: (tx: Prisma.TransactionClient) => Promise<T>,
+): Promise<T> {
+  return prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT 1 FROM "Group" WHERE id = ${groupId} FOR UPDATE`
+    return fn(tx)
+  })
+}
+
+async function roleIn(
+  tx: Prisma.TransactionClient,
+  groupId: string,
+  userId: string,
+): Promise<GroupRole | null> {
+  const row = await tx.groupMember.findUnique({
+    where: { groupId_userId: { groupId, userId } },
+    select: { role: true },
+  })
+  return row?.role ?? null
+}
+
 export async function leaveGroup(groupId: string): Promise<ActionResult> {
   const user = await requireUser()
-  const role = await getViewerRole(user.id, groupId)
-  if (!role) return fail('You are not a member of this group')
-  if (!canLeave(role, await countAdmins(groupId)))
-    return fail('Promote another admin before leaving')
-
-  await prisma.groupMember.deleteMany({ where: { groupId, userId: user.id } })
-  revalidateGroups()
-  return { ok: true }
+  const result = await withGroupLock(groupId, async (tx) => {
+    const role = await roleIn(tx, groupId, user.id)
+    if (!role) return fail('You are not a member of this group')
+    const admins = await tx.groupMember.count({
+      where: { groupId, role: 'ADMIN' },
+    })
+    if (!canLeave(role, admins))
+      return fail('Promote another admin before leaving')
+    await tx.groupMember.deleteMany({ where: { groupId, userId: user.id } })
+    return OK
+  })
+  if (result.ok) revalidateGroups()
+  return result
 }
 
 export async function removeMember(
@@ -216,23 +250,25 @@ export async function removeMember(
   userId: string,
 ): Promise<ActionResult> {
   const user = await requireUser()
-  const [actorRole, targetRole] = await Promise.all([
-    getViewerRole(user.id, groupId),
-    getViewerRole(userId, groupId),
-  ])
-  if (!actorRole) return fail('You are not a member of this group')
-  if (!targetRole) return fail('That person is not a member')
-  if (
-    !canRemoveMember(
-      { id: user.id, role: actorRole },
-      { id: userId, role: targetRole },
+  const result = await withGroupLock(groupId, async (tx) => {
+    const [actorRole, targetRole] = await Promise.all([
+      roleIn(tx, groupId, user.id),
+      roleIn(tx, groupId, userId),
+    ])
+    if (!actorRole) return fail('You are not a member of this group')
+    if (!targetRole) return fail('That person is not a member')
+    if (
+      !canRemoveMember(
+        { id: user.id, role: actorRole },
+        { id: userId, role: targetRole },
+      )
     )
-  )
-    return fail('You cannot remove that member')
-
-  await prisma.groupMember.deleteMany({ where: { groupId, userId } })
-  revalidateGroups()
-  return { ok: true }
+      return fail('You cannot remove that member')
+    await tx.groupMember.deleteMany({ where: { groupId, userId } })
+    return OK
+  })
+  if (result.ok) revalidateGroups()
+  return result
 }
 
 export async function setMemberRole(
@@ -242,17 +278,19 @@ export async function setMemberRole(
 ): Promise<ActionResult> {
   const user = await requireUser()
   if (!isGroupRole(role)) return fail('Unknown role')
-  const actorRole = await getViewerRole(user.id, groupId)
-  if (!actorRole || !canChangeRole({ id: user.id, role: actorRole }, userId))
-    return fail('You cannot change that role')
-
-  const { count } = await prisma.groupMember.updateMany({
-    where: { groupId, userId },
-    data: { role },
+  const result = await withGroupLock(groupId, async (tx) => {
+    const actorRole = await roleIn(tx, groupId, user.id)
+    if (!actorRole || !canChangeRole({ id: user.id, role: actorRole }, userId))
+      return fail('You cannot change that role')
+    const { count } = await tx.groupMember.updateMany({
+      where: { groupId, userId },
+      data: { role },
+    })
+    if (count === 0) return fail('That person is not a member')
+    return OK
   })
-  if (count === 0) return fail('That person is not a member')
-  revalidateGroups()
-  return { ok: true }
+  if (result.ok) revalidateGroups()
+  return result
 }
 
 // Form-action wrappers: <form action> expects a void-returning function. When the

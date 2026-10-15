@@ -145,6 +145,10 @@ test('private group: request, approve, and visibility before versus after', asyn
   await expect(b.page.getByText('This group is private')).toBeVisible()
   await expect(b.page.getByText('Members only')).toHaveCount(0)
   expect((await b.page.goto(permalink!))?.status()).toBe(404)
+  // The roster is private too
+  await b.page.goto(`${url}/members`)
+  await expect(b.page.getByText('This group is private')).toBeVisible()
+  await expect(b.page.getByRole('region', { name: 'Members' })).toHaveCount(0)
 
   await b.page.goto(url)
   await b.page.getByRole('button', { name: 'Request to join' }).dblclick()
@@ -162,7 +166,11 @@ test('private group: request, approve, and visibility before versus after', asyn
     b.user.name,
   )
 
-  // B now sees and can post
+  // B now sees the posts and the roster, and can post
+  await b.page.goto(`${url}/members`)
+  await expect(b.page.getByRole('region', { name: 'Members' })).toContainText(
+    a.user.name,
+  )
   await b.page.goto(url)
   await expect(b.page.getByText('Members only')).toBeVisible()
   await postIn(b.page, 'Thanks for letting me in')
@@ -267,4 +275,55 @@ test('a removed member’s stale composer is rejected; admins can delete the gro
   await a.page.getByRole('button', { name: 'Delete group' }).click()
   await expect(a.page).toHaveURL(/\/groups$/)
   expect((await a.page.goto(url))?.status()).toBe(404)
+})
+
+test('two admins leaving at the same instant cannot leave the group without an admin', async ({
+  browser,
+}) => {
+  const a = await userIn(browser, 'gla')
+  const b = await userIn(browser, 'glb')
+  const url = await createGroup(a.page, `Race ${Date.now()}`, 'Public')
+  await b.page.goto(url)
+  await b.page.getByRole('button', { name: 'Join group' }).click()
+  await expect(
+    b.page.getByRole('button', { name: 'Leave group' }),
+  ).toBeVisible()
+
+  await a.page.goto(`${url}/members`)
+  await a.page.getByLabel(`Role for ${b.user.name}`).selectOption('ADMIN')
+  await a.page
+    .getByRole('listitem')
+    .filter({ hasText: b.user.name })
+    .getByRole('button', { name: 'Change role' })
+    .click()
+  await expect(
+    a.page.getByRole('listitem').filter({ hasText: b.user.name }),
+  ).toContainText('Admin')
+
+  // Both admins click Leave at once; exactly one may succeed
+  await a.page.goto(url)
+  await b.page.goto(url)
+  await Promise.all([
+    a.page.getByRole('button', { name: 'Leave group' }).click(),
+    b.page.getByRole('button', { name: 'Leave group' }).click(),
+  ])
+  const outcome = async (page: Page) => {
+    await expect
+      .poll(
+        async () =>
+          /\/groups$/.test(page.url()) ||
+          (await page
+            .getByText('Promote another admin before leaving')
+            .count()) > 0,
+      )
+      .toBe(true)
+    return /\/groups$/.test(page.url()) ? 'left' : 'blocked'
+  }
+  const results = await Promise.all([outcome(a.page), outcome(b.page)])
+  expect(results.filter((r) => r === 'left')).toHaveLength(1)
+  const stayer = results[0] === 'blocked' ? a.page : b.page
+  await stayer.goto(`${url}/members`)
+  await expect(stayer.getByRole('region', { name: 'Members' })).toContainText(
+    'Admin',
+  )
 })
