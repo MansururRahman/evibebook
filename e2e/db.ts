@@ -59,6 +59,18 @@ export async function deleteUsersByEmailDomain(
       'DELETE FROM "User" WHERE email LIKE $1',
       [pattern],
     )
+    // Pages have no creator column; once their last team member is gone they
+    // are orphans. Collect their avatars, then delete them (posts cascade).
+    const orphanAvatars = await client.query<{ url: string }>(
+      `SELECT "avatarUrl" AS url FROM "Page" p
+       WHERE "avatarUrl" IS NOT NULL
+         AND NOT EXISTS (SELECT 1 FROM "PageMember" m WHERE m."pageId" = p.id)`,
+    )
+    await client.query(
+      `DELETE FROM "Page" p
+       WHERE NOT EXISTS (SELECT 1 FROM "PageMember" m WHERE m."pageId" = p.id)`,
+    )
+    rows.push(...orphanAvatars.rows)
 
     let files = 0
     for (const { url } of rows) {
