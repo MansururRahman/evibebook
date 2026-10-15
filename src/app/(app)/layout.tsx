@@ -1,4 +1,5 @@
-import { Navbar } from '@/components/Navbar'
+import { Sidebar } from '@/components/Sidebar'
+import { TopBar } from '@/components/TopBar'
 import { requireUser } from '@/lib/session'
 import { countIncoming } from '@/features/friends/queries'
 import { countUnread } from '@/features/messages/queries'
@@ -14,15 +15,18 @@ export default async function AppLayout({ children }: LayoutProps<'/'>) {
     ])
   return (
     <>
-      <Navbar
+      <TopBar
         user={user}
         pendingRequests={pendingRequests}
         unreadMessages={unreadMessages}
         unreadNotifications={unreadNotifications}
       />
-      <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-6">
-        {children}
-      </main>
+      <div className="mx-auto flex w-full max-w-7xl flex-1">
+        <Sidebar user={user} />
+        <main className="min-w-0 flex-1 px-4 py-6">
+          <div className="mx-auto w-full max-w-3xl">{children}</div>
+        </main>
+      </div>
     </>
   )
 }
