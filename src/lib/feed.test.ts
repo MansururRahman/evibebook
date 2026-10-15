@@ -47,14 +47,16 @@ describe('paginate', () => {
 })
 
 describe('canViewPost', () => {
-  const plain = { authorId: 'author', group: null }
+  const plain = { authorId: 'author', group: null, pageId: null }
   const pub = {
     authorId: 'author',
     group: { id: 'g1', privacy: 'PUBLIC' as const },
+    pageId: null,
   }
   const priv = {
     authorId: 'author',
     group: { id: 'g2', privacy: 'PRIVATE' as const },
+    pageId: null,
   }
 
   it('uses the friends rule for posts outside a group', () => {
@@ -76,5 +78,11 @@ describe('canViewPost', () => {
 
   it('does not let the author see their own post in a private group they left', () => {
     expect(canViewPost('author', priv, [], [])).toBe(false)
+  })
+
+  it('shows page posts to everyone: non-friends, non-followers, strangers', () => {
+    const pagePost = { authorId: 'author', group: null, pageId: 'page1' }
+    expect(canViewPost('stranger', pagePost, [], [])).toBe(true)
+    expect(canViewPost('author', pagePost, [], [])).toBe(true)
   })
 })

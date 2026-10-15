@@ -37,19 +37,37 @@ export function PostCard({
     <Card>
       <article className="flex flex-col gap-3">
         <header className="flex items-center gap-3">
-          <Avatar
-            name={post.author.name}
-            avatarUrl={post.author.avatarUrl}
-            size="md"
-          />
+          {post.page ? (
+            // Page posts are from the page: its avatar and name, no person.
+            <Avatar
+              name={post.page.name}
+              avatarUrl={post.page.avatarUrl}
+              size="md"
+            />
+          ) : (
+            <Avatar
+              name={post.author.name}
+              avatarUrl={post.author.avatarUrl}
+              size="md"
+            />
+          )}
           <div className="min-w-0 flex-1">
             <p className="font-medium">
-              <Link
-                href={`/u/${post.author.username}`}
-                className="hover:underline"
-              >
-                {post.author.name}
-              </Link>
+              {post.page ? (
+                <Link
+                  href={`/pages/${post.page.slug}`}
+                  className="hover:underline"
+                >
+                  {post.page.name}
+                </Link>
+              ) : (
+                <Link
+                  href={`/u/${post.author.username}`}
+                  className="hover:underline"
+                >
+                  {post.author.name}
+                </Link>
+              )}
               {post.group ? (
                 <span className="font-normal text-zinc-500">
                   {' in '}

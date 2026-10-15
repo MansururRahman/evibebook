@@ -9,13 +9,21 @@ import { fail, type ActionResult } from '@/lib/action-result'
 import { isReactionType, type ReactionType } from '@/lib/reactions'
 import { getViewerRole } from '@/features/groups/queries'
 import { canModerate } from '@/features/groups/permissions'
+import { getViewerPageRole } from '@/features/pages/queries'
+import { canPostAsPage } from '@/features/pages/permissions'
 import { commentSchema, postBodySchema } from './schemas'
+import { postContainer } from './container'
 import { canAccessPost } from './queries'
 
-function revalidatePost(authorUsername: string, groupSlug?: string | null) {
+function revalidatePost(
+  authorUsername: string,
+  groupSlug?: string | null,
+  pageSlug?: string | null,
+) {
   revalidatePath('/feed')
   revalidatePath(`/u/${authorUsername}`)
   if (groupSlug) revalidatePath(`/g/${groupSlug}`)
+  if (pageSlug) revalidatePath(`/pages/${pageSlug}`)
 }
 
 export async function createPost(
@@ -33,10 +41,11 @@ export async function createPost(
   const hasImage = image instanceof File && image.size > 0
   if (!body && !hasImage) return fail('Write something or add an image')
 
-  const groupField = formData.get('groupId')
-  const groupId =
-    typeof groupField === 'string' && groupField.length > 0 ? groupField : null
+  const container = postContainer(formData)
+  if ('error' in container) return fail(container.error)
+  const { groupId, pageId } = container
   let groupSlug: string | null = null
+  let pageSlug: string | null = null
   if (groupId) {
     const group = await prisma.group.findUnique({
       where: { id: groupId },
@@ -46,9 +55,21 @@ export async function createPost(
     if (!group || !role) return fail('You must be a member to post here')
     groupSlug = group.slug
   }
+  if (pageId) {
+    const page = await prisma.page.findUnique({
+      where: { id: pageId },
+      select: { slug: true },
+    })
+    const role = page ? await getViewerPageRole(user.id, pageId) : null
+    if (!page || !canPostAsPage(role))
+      return fail("You must be on the page's team to post here")
+    pageSlug = page.slug
+  }
 
   if (!hasImage) {
-    await prisma.post.create({ data: { authorId: user.id, body, groupId } })
+    await prisma.post.create({
+      data: { authorId: user.id, body, groupId, pageId },
+    })
   } else {
     const prepared = await prepareUpload(image, 'posts')
     if (!prepared.ok) return fail(prepared.error)
@@ -60,13 +81,14 @@ export async function createPost(
           authorId: user.id,
           body,
           groupId,
+          pageId,
           imageUrl: prepared.upload.url,
         },
       })
       await writeUpload(prepared.upload)
     })
   }
-  revalidatePost(user.username, groupSlug)
+  revalidatePost(user.username, groupSlug, pageSlug)
   return { ok: true }
 }
 
@@ -79,16 +101,25 @@ export async function deletePost(postId: string): Promise<ActionResult> {
       imageUrl: true,
       author: { select: { username: true } },
       group: { select: { id: true, slug: true } },
+      page: { select: { id: true, slug: true } },
     },
   })
   if (!post) return fail('Post not found')
-  const role = post.group ? await getViewerRole(user.id, post.group.id) : null
-  if (post.authorId !== user.id && !canModerate(role))
-    return fail('You can only delete your own posts')
+  const groupRole = post.group
+    ? await getViewerRole(user.id, post.group.id)
+    : null
+  const pageRole = post.page
+    ? await getViewerPageRole(user.id, post.page.id)
+    : null
+  const allowed =
+    post.authorId === user.id ||
+    canModerate(groupRole) ||
+    canPostAsPage(pageRole)
+  if (!allowed) return fail('You can only delete your own posts')
 
   await prisma.post.delete({ where: { id: postId } })
   await deleteUpload(post.imageUrl)
-  revalidatePost(post.author.username, post.group?.slug)
+  revalidatePost(post.author.username, post.group?.slug, post.page?.slug)
   return { ok: true }
 }
 
@@ -122,7 +153,7 @@ export async function setReaction(
     create: { userId: user.id, postId, type },
     update: { type },
   })
-  revalidatePost(post.author.username, post.group?.slug)
+  revalidatePost(post.author.username, post.group?.slug, post.page?.slug)
   return { ok: true }
 }
 
@@ -134,7 +165,7 @@ export async function removeReaction(postId: string): Promise<ActionResult> {
   // deleteMany rather than delete: removing a reaction that is already gone
   // (double submit, stale page) is a no-op, not an error.
   await prisma.reaction.deleteMany({ where: { userId: user.id, postId } })
-  revalidatePost(post.author.username, post.group?.slug)
+  revalidatePost(post.author.username, post.group?.slug, post.page?.slug)
   return { ok: true }
 }
 
@@ -168,7 +199,7 @@ export async function addComment(
   await prisma.comment.create({
     data: { postId, authorId: user.id, body: parsed.data.body },
   })
-  revalidatePost(post.author.username, post.group?.slug)
+  revalidatePost(post.author.username, post.group?.slug, post.page?.slug)
   return { ok: true }
 }
 
@@ -183,6 +214,7 @@ export async function deleteComment(commentId: string): Promise<ActionResult> {
           authorId: true,
           author: { select: { username: true } },
           group: { select: { slug: true } },
+          page: { select: { slug: true } },
         },
       },
     },
@@ -192,7 +224,11 @@ export async function deleteComment(commentId: string): Promise<ActionResult> {
     return fail('You can only delete your own comments')
   }
   await prisma.comment.delete({ where: { id: commentId } })
-  revalidatePost(comment.post.author.username, comment.post.group?.slug)
+  revalidatePost(
+    comment.post.author.username,
+    comment.post.group?.slug,
+    comment.post.page?.slug,
+  )
   return { ok: true }
 }
 

@@ -27,6 +27,8 @@ model User {
   createdGroups     Group[]            @relation("GroupCreator")
   groupMemberships  GroupMember[]
   groupJoinRequests GroupJoinRequest[]
+  pageMemberships   PageMember[]
+  pageFollows       PageFollow[]
 }
 
 model Post {
@@ -35,17 +37,20 @@ model Post {
   body      String   @db.VarChar(2000)
   imageUrl  String?
   groupId   String?
+  pageId    String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   author    User       @relation(fields: [authorId], references: [id], onDelete: Cascade)
   group     Group?     @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  page      Page?      @relation(fields: [pageId], references: [id], onDelete: Cascade)
   reactions Reaction[]
   comments  Comment[]
 
   @@index([authorId, createdAt(sort: Desc)])
   @@index([createdAt(sort: Desc), id(sort: Desc)])
   @@index([groupId, createdAt(sort: Desc), id(sort: Desc)])
+  @@index([pageId, createdAt(sort: Desc), id(sort: Desc)])
 }
 
 enum ReactionType {
@@ -157,5 +162,51 @@ model GroupJoinRequest {
   user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@id([groupId, userId])
+  @@index([userId])
+}
+
+enum PageRole {
+  ADMIN
+  EDITOR
+}
+
+model Page {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  name        String   @db.VarChar(80)
+  description String?  @db.VarChar(500)
+  avatarUrl   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  members   PageMember[]
+  followers PageFollow[]
+  posts     Post[]
+}
+
+/// The page's team. The creator is the first ADMIN; there is no creator column,
+/// so deleting a user who handed the page off never deletes the page.
+model PageMember {
+  pageId   String
+  userId   String
+  role     PageRole @default(EDITOR)
+  joinedAt DateTime @default(now())
+
+  page Page @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([pageId, userId])
+  @@index([userId])
+}
+
+model PageFollow {
+  pageId    String
+  userId    String
+  createdAt DateTime @default(now())
+
+  page Page @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([pageId, userId])
   @@index([userId])
 }

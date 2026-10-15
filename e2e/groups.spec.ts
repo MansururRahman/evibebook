@@ -280,6 +280,8 @@ test('a removed member’s stale composer is rejected; admins can delete the gro
 test('two admins leaving at the same instant cannot leave the group without an admin', async ({
   browser,
 }) => {
+  // Three users and many round-trips: give this one triple the usual budget.
+  test.slow()
   const a = await userIn(browser, 'gla')
   const b = await userIn(browser, 'glb')
   const url = await createGroup(a.page, `Race ${Date.now()}`, 'Public')

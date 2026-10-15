@@ -30,11 +30,14 @@ export type GroupPrivacy = 'PUBLIC' | 'PRIVATE'
 export type PostVisibilityInput = {
   authorId: string
   group: { id: string; privacy: GroupPrivacy } | null
+  /** Set when the post was made on a page; page posts are public. */
+  pageId: string | null
 }
 
 /**
- * Whether `viewerId` may see a post. A group post is visible when the group is
- * public or the viewer is a member; a post outside a group follows the friends rule.
+ * Whether `viewerId` may see a post. Page posts are public. A group post is
+ * visible when the group is public or the viewer is a member. A timeline post
+ * follows the friends rule.
  */
 export function canViewPost(
   viewerId: string,
@@ -42,6 +45,7 @@ export function canViewPost(
   friendIds: readonly string[],
   memberGroupIds: readonly string[],
 ): boolean {
+  if (post.pageId) return true
   if (post.group) {
     return (
       post.group.privacy === 'PUBLIC' || memberGroupIds.includes(post.group.id)

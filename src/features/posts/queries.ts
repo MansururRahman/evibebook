@@ -13,6 +13,8 @@ import {
   canDeleteGroupPost,
   type GroupRole,
 } from '@/features/groups/permissions'
+import { getFollowedPageIds, getPageRoles } from '@/features/pages/queries'
+import type { PageRole } from '@/features/pages/permissions'
 import type { ReactionCount, ReactionType } from '@/lib/reactions'
 
 export const FEED_PAGE_SIZE = 20
@@ -28,6 +30,7 @@ function postInclude(viewerId: string) {
   return {
     author: { select: authorSelect },
     group: { select: { id: true, slug: true, name: true, privacy: true } },
+    page: { select: { id: true, slug: true, name: true, avatarUrl: true } },
     _count: { select: { reactions: true, comments: true } },
     reactions: { where: { userId: viewerId }, select: { type: true } },
     comments: {
@@ -61,7 +64,14 @@ export type FeedPost = {
   author: PostAuthor
   /** The group this post was made in, or null for a timeline post. */
   group: { id: string; slug: string; name: string } | null
-  /** Author, or a moderator/admin of the post's group. */
+  /** The page this post was made on, or null. Page posts render as the page. */
+  page: {
+    id: string
+    slug: string
+    name: string
+    avatarUrl: string | null
+  } | null
+  /** Author, a moderator/admin of the post's group, or a team member of its page. */
   canDelete: boolean
   reactionCount: number
   /** Per-type counts for the summary row; only types with at least one reaction. */
@@ -111,6 +121,7 @@ async function toFeedPosts(
   rows: Row[],
   viewerId: string,
   memberships: Map<string, GroupRole>,
+  pageRoles: Map<string, PageRole>,
 ): Promise<FeedPost[]> {
   const counts = await reactionCountsFor(rows.map((r) => r.id))
   return rows.map((row) => ({
@@ -123,11 +134,20 @@ async function toFeedPosts(
     group: row.group
       ? { id: row.group.id, slug: row.group.slug, name: row.group.name }
       : null,
-    canDelete: canDeleteGroupPost(
-      viewerId,
-      row.authorId,
-      row.group ? (memberships.get(row.group.id) ?? null) : null,
-    ),
+    page: row.page
+      ? {
+          id: row.page.id,
+          slug: row.page.slug,
+          name: row.page.name,
+          avatarUrl: row.page.avatarUrl,
+        }
+      : null,
+    canDelete:
+      canDeleteGroupPost(
+        viewerId,
+        row.authorId,
+        row.group ? (memberships.get(row.group.id) ?? null) : null,
+      ) || (row.page ? pageRoles.has(row.page.id) : false),
     reactionCount: row._count.reactions,
     reactionCounts: counts.get(row.id) ?? [],
     myReaction: row.reactions[0]?.type ?? null,
@@ -136,25 +156,36 @@ async function toFeedPosts(
   }))
 }
 
+/** The viewer's group memberships and page team roles, fetched together. */
+function viewerContainers(viewerId: string) {
+  return Promise.all([getMemberships(viewerId), getPageRoles(viewerId)])
+}
+
 export async function getFeed(viewerId: string, cursor?: string) {
-  const [friendIds, memberships] = await Promise.all([
-    getFriendIds(viewerId),
-    getMemberships(viewerId),
-  ])
+  const [friendIds, [memberships, pageRoles], followedPageIds] =
+    await Promise.all([
+      getFriendIds(viewerId),
+      viewerContainers(viewerId),
+      getFollowedPageIds(viewerId),
+    ])
   const authorIds = visibleAuthorIds(viewerId, friendIds)
   const rows = await fetchRows(
     viewerId,
     {
       OR: [
-        { groupId: null, authorId: { in: authorIds } },
+        { groupId: null, pageId: null, authorId: { in: authorIds } },
         { groupId: { in: Array.from(memberships.keys()) } },
+        { pageId: { in: followedPageIds } },
       ],
     },
     cursor,
     FEED_PAGE_SIZE + 1,
   )
   const { items, nextCursor } = paginate(rows, FEED_PAGE_SIZE)
-  return { posts: await toFeedPosts(items, viewerId, memberships), nextCursor }
+  return {
+    posts: await toFeedPosts(items, viewerId, memberships, pageRoles),
+    nextCursor,
+  }
 }
 
 /** Posts on a profile page, or null when the viewer is not allowed to see them. */
@@ -163,16 +194,17 @@ export async function getUserPosts(
   authorId: string,
   cursor?: string,
 ): Promise<{ posts: FeedPost[]; nextCursor: string | null } | null> {
-  const [friendIds, memberships] = await Promise.all([
+  const [friendIds, [memberships, pageRoles]] = await Promise.all([
     getFriendIds(viewerId),
-    getMemberships(viewerId),
+    viewerContainers(viewerId),
   ])
   if (!canViewPostsOf(viewerId, authorId, friendIds)) return null
-  // Group posts on a profile follow the group's rule, not the friends rule.
+  // Page posts belong to the page, not the person. Group posts follow the group's rule.
   const rows = await fetchRows(
     viewerId,
     {
       authorId,
+      pageId: null,
       OR: [
         { groupId: null },
         { group: { privacy: 'PUBLIC' } },
@@ -183,7 +215,10 @@ export async function getUserPosts(
     FEED_PAGE_SIZE + 1,
   )
   const { items, nextCursor } = paginate(rows, FEED_PAGE_SIZE)
-  return { posts: await toFeedPosts(items, viewerId, memberships), nextCursor }
+  return {
+    posts: await toFeedPosts(items, viewerId, memberships, pageRoles),
+    nextCursor,
+  }
 }
 
 /** Posts in one group. Callers must already have checked the viewer may see the group's posts. */
@@ -192,7 +227,7 @@ export async function getGroupPosts(
   groupId: string,
   cursor?: string,
 ): Promise<{ posts: FeedPost[]; nextCursor: string | null }> {
-  const memberships = await getMemberships(viewerId)
+  const [memberships, pageRoles] = await viewerContainers(viewerId)
   const rows = await fetchRows(
     viewerId,
     { groupId },
@@ -200,7 +235,25 @@ export async function getGroupPosts(
     FEED_PAGE_SIZE + 1,
   )
   const { items, nextCursor } = paginate(rows, FEED_PAGE_SIZE)
-  return { posts: await toFeedPosts(items, viewerId, memberships), nextCursor }
+  return {
+    posts: await toFeedPosts(items, viewerId, memberships, pageRoles),
+    nextCursor,
+  }
+}
+
+/** Posts on one page. Page posts are public, so there is no visibility check. */
+export async function getPagePosts(
+  viewerId: string,
+  pageId: string,
+  cursor?: string,
+): Promise<{ posts: FeedPost[]; nextCursor: string | null }> {
+  const [memberships, pageRoles] = await viewerContainers(viewerId)
+  const rows = await fetchRows(viewerId, { pageId }, cursor, FEED_PAGE_SIZE + 1)
+  const { items, nextCursor } = paginate(rows, FEED_PAGE_SIZE)
+  return {
+    posts: await toFeedPosts(items, viewerId, memberships, pageRoles),
+    nextCursor,
+  }
 }
 
 /** A single post, or null when it does not exist or the viewer may not see it. */
@@ -213,13 +266,13 @@ export async function getPost(
     include: postInclude(viewerId),
   })
   if (!row) return null
-  const [friendIds, memberships] = await Promise.all([
+  const [friendIds, [memberships, pageRoles]] = await Promise.all([
     getFriendIds(viewerId),
-    getMemberships(viewerId),
+    viewerContainers(viewerId),
   ])
   if (!canViewPost(viewerId, row, friendIds, Array.from(memberships.keys())))
     return null
-  const [post] = await toFeedPosts([row], viewerId, memberships)
+  const [post] = await toFeedPosts([row], viewerId, memberships, pageRoles)
   return post
 }
 
@@ -230,8 +283,10 @@ export async function canAccessPost(viewerId: string, postId: string) {
     select: {
       id: true,
       authorId: true,
+      pageId: true,
       author: { select: { username: true } },
       group: { select: { id: true, slug: true, privacy: true } },
+      page: { select: { slug: true } },
     },
   })
   if (!post) return null

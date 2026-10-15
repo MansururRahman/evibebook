@@ -26,6 +26,9 @@ export function Navbar({
         <Link href="/groups" className="text-sm text-zinc-700 hover:underline">
           Groups
         </Link>
+        <Link href="/pages" className="text-sm text-zinc-700 hover:underline">
+          Pages
+        </Link>
         <Link href="/people" className="text-sm text-zinc-700 hover:underline">
           People
         </Link>

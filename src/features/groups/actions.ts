@@ -9,7 +9,7 @@ import { requireUser } from '@/lib/session'
 import { deleteUpload } from '@/lib/storage'
 import { OK, fail, type ActionResult } from '@/lib/action-result'
 import { groupSchema } from './schemas'
-import { slugify, withSuffix } from './slug'
+import { slugify, withSuffix } from '@/lib/slug'
 import {
   canChangeRole,
   canLeave,
