@@ -31,6 +31,8 @@ model User {
   pageFollows       PageFollow[]
   conversations     ConversationParticipant[]
   sentMessages      Message[]
+  notifications     Notification[] @relation("NotificationRecipient")
+  notificationsSent Notification[] @relation("NotificationActor")
 }
 
 model Post {
@@ -249,4 +251,37 @@ model Message {
   sender       User         @relation(fields: [senderId], references: [id], onDelete: Cascade)
 
   @@index([conversationId, createdAt(sort: Desc), id(sort: Desc)])
+}
+
+enum NotificationType {
+  FRIEND_REQUEST
+  FRIEND_ACCEPTED
+  REACTION
+  COMMENT
+  GROUP_JOIN_REQUEST
+  GROUP_JOIN_APPROVED
+  PAGE_TEAM_ADDED
+}
+
+/// Something that happened to `userId`, caused by `actorId`. `href` is where
+/// the row links; `subject` is a short excerpt so the row reads well without
+/// joining the target. `dedupeKey` collapses repeats (one REACTION per actor
+/// per post); null when repeats are fine.
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  type      NotificationType
+  actorId   String
+  href      String
+  subject   String?          @db.VarChar(80)
+  dedupeKey String?
+  createdAt DateTime         @default(now())
+  readAt    DateTime?
+
+  user  User @relation("NotificationRecipient", fields: [userId], references: [id], onDelete: Cascade)
+  actor User @relation("NotificationActor", fields: [actorId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, dedupeKey])
+  @@index([userId, readAt])
+  @@index([userId, createdAt(sort: Desc)])
 }
