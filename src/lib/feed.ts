@@ -24,3 +24,28 @@ export function paginate<T extends { id: string }>(
   const items = rows.slice(0, take)
   return { items, nextCursor: items[items.length - 1]!.id }
 }
+
+export type GroupPrivacy = 'PUBLIC' | 'PRIVATE'
+
+export type PostVisibilityInput = {
+  authorId: string
+  group: { id: string; privacy: GroupPrivacy } | null
+}
+
+/**
+ * Whether `viewerId` may see a post. A group post is visible when the group is
+ * public or the viewer is a member; a post outside a group follows the friends rule.
+ */
+export function canViewPost(
+  viewerId: string,
+  post: PostVisibilityInput,
+  friendIds: readonly string[],
+  memberGroupIds: readonly string[],
+): boolean {
+  if (post.group) {
+    return (
+      post.group.privacy === 'PUBLIC' || memberGroupIds.includes(post.group.id)
+    )
+  }
+  return canViewPostsOf(viewerId, post.authorId, friendIds)
+}

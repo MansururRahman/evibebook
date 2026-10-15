@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { canViewPostsOf, paginate, visibleAuthorIds } from './feed'
+import { canViewPost, canViewPostsOf, paginate, visibleAuthorIds } from './feed'
 
 describe('visibleAuthorIds', () => {
   it('includes the viewer and every friend, without duplicates', () => {
@@ -43,5 +43,38 @@ describe('paginate', () => {
     const result = paginate(rows(4), 3)
     expect(result.items).toEqual(rows(3))
     expect(result.nextCursor).toBe('p2')
+  })
+})
+
+describe('canViewPost', () => {
+  const plain = { authorId: 'author', group: null }
+  const pub = {
+    authorId: 'author',
+    group: { id: 'g1', privacy: 'PUBLIC' as const },
+  }
+  const priv = {
+    authorId: 'author',
+    group: { id: 'g2', privacy: 'PRIVATE' as const },
+  }
+
+  it('uses the friends rule for posts outside a group', () => {
+    expect(canViewPost('author', plain, [], [])).toBe(true)
+    expect(canViewPost('me', plain, ['author'], [])).toBe(true)
+    expect(canViewPost('me', plain, [], ['g1', 'g2'])).toBe(false)
+  })
+
+  it('shows public group posts to everyone, even non-friends and non-members', () => {
+    expect(canViewPost('me', pub, [], [])).toBe(true)
+  })
+
+  it('shows private group posts only to members', () => {
+    expect(canViewPost('me', priv, [], ['g2'])).toBe(true)
+    expect(canViewPost('me', priv, [], ['g1'])).toBe(false)
+    // Being friends with the author is not enough for a private group post
+    expect(canViewPost('me', priv, ['author'], [])).toBe(false)
+  })
+
+  it('does not let the author see their own post in a private group they left', () => {
+    expect(canViewPost('author', priv, [], [])).toBe(false)
   })
 })
