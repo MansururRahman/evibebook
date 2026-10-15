@@ -283,6 +283,7 @@ export async function canAccessPost(viewerId: string, postId: string) {
     select: {
       id: true,
       authorId: true,
+      body: true,
       pageId: true,
       author: { select: { username: true } },
       group: { select: { id: true, slug: true, privacy: true } },
