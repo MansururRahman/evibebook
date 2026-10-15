@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Card } from '@/components/ui/Card'
 import { Avatar } from '@/features/profile/components/Avatar'
 import { formatDate } from '@/lib/format'
@@ -19,15 +19,14 @@ export function NotificationList({ rows }: { rows: NotificationRow[] }) {
   const [newIds, setNewIds] = useState<Set<string>>(
     () => new Set(rows.filter((r) => r.unread).map((r) => r.id)),
   )
-  useEffect(() => {
-    const arrived = rows.filter((r) => r.unread && !newIds.has(r.id))
-    if (arrived.length === 0) return
-    setNewIds((prev) => {
-      const next = new Set(prev)
-      for (const r of arrived) next.add(r.id)
-      return next
-    })
-  }, [rows, newIds])
+  // Rows that arrive unread on a later refresh join the set. Adjusting state
+  // during render (not in an effect) is React's pattern for derived state.
+  const arrived = rows.filter((r) => r.unread && !newIds.has(r.id))
+  if (arrived.length > 0) {
+    const next = new Set(newIds)
+    for (const r of arrived) next.add(r.id)
+    setNewIds(next)
+  }
 
   return (
     <Card>
