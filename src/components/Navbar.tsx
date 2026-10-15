@@ -23,6 +23,9 @@ export function Navbar({
         <Link href="/friends" className="text-sm text-zinc-700 hover:underline">
           {pendingRequests > 0 ? `Friends (${pendingRequests})` : 'Friends'}
         </Link>
+        <Link href="/groups" className="text-sm text-zinc-700 hover:underline">
+          Groups
+        </Link>
         <Link href="/people" className="text-sm text-zinc-700 hover:underline">
           People
         </Link>
